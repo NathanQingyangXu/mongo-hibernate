@@ -49,11 +49,6 @@ abstract class AbstractMongoConnection implements Connection {
     }
 
     @Override
-    public String getCatalog() {
-        throw new IllegalStateException("Hibernate won't use this method");
-    }
-
-    @Override
     public Map<String, Class<?>> getTypeMap() {
         throw new IllegalStateException("Hibernate won't use this method");
     }

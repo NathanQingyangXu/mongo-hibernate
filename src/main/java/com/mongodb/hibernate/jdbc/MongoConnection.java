@@ -17,31 +17,25 @@
 package com.mongodb.hibernate.jdbc;
 
 import com.mongodb.client.ClientSession;
+import com.mongodb.client.MongoDatabase;
 import com.mongodb.hibernate.internal.NotYetImplementedException;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.CallableStatement;
-import java.sql.Clob;
-import java.sql.DatabaseMetaData;
-import java.sql.NClob;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.SQLWarning;
-import java.sql.SQLXML;
-import java.sql.Statement;
-import java.sql.Struct;
+import java.sql.*;
+import java.util.List;
+import org.bson.BsonDocument;
+import org.bson.BsonInt32;
 import org.hibernate.service.UnknownUnwrapTypeException;
 import org.jspecify.annotations.Nullable;
 
 /** MongoDB Dialect's JDBC {@linkplain java.sql.Connection connection} implementation class. */
 final class MongoConnection extends AbstractMongoConnection {
 
+    private final @Nullable MongoDatabase mongoDatabase;
     private final ClientSession clientSession;
 
     private boolean closed;
 
-    MongoConnection(ClientSession clientSession) {
+    MongoConnection(@Nullable MongoDatabase mongoDatabase, ClientSession clientSession) {
+        this.mongoDatabase = mongoDatabase;
         this.clientSession = clientSession;
     }
 
@@ -143,8 +137,8 @@ final class MongoConnection extends AbstractMongoConnection {
     // SQL99 data types
 
     @Override
-    public Clob createClob() {
-        throw new NotYetImplementedException();
+    public Clob createClob() throws SQLException {
+        throw new SQLException(new NotYetImplementedException());
     }
 
     @Override
@@ -176,9 +170,25 @@ final class MongoConnection extends AbstractMongoConnection {
     // Database meta data
 
     @Override
-    public DatabaseMetaData getMetaData() {
-        throw new NotYetImplementedException(
-                "To be implemented in scope of https://jira.mongodb.org/browse/HIBERNATE-37");
+    public DatabaseMetaData getMetaData() throws SQLException {
+        if (mongoDatabase == null) {
+            throw new SQLException("No mongoDatabase exists");
+        }
+        try {
+            var commandResult = mongoDatabase.runCommand(new BsonDocument("buildinfo", new BsonInt32(1)));
+            if (commandResult.getDouble("ok") != 1.0) {
+                throw new SQLException("Failed to get metadata: " + commandResult.toJson());
+            }
+            String versionText = commandResult.getString("version");
+            List<Integer> versionArray = commandResult.getList("versionArray", Integer.class);
+            if (versionArray.size() < 2) {
+                throw new SQLException(
+                        String.format("Unexpected versionArray [%s] field length (should be 2 or more)", versionArray));
+            }
+            return new MongoDatabaseMetadata(this, versionText, versionArray.get(0), versionArray.get(1));
+        } catch (RuntimeException e) {
+            throw new SQLException("Failed to get metadata", e);
+        }
     }
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -217,5 +227,10 @@ final class MongoConnection extends AbstractMongoConnection {
     @Override
     public boolean isWrapperFor(Class<?> unwrapType) {
         return false;
+    }
+
+    @Override
+    public @Nullable String getCatalog() {
+        return null;
     }
 }

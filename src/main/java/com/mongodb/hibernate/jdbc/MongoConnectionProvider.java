@@ -26,6 +26,7 @@ import com.mongodb.MongoClientSettings;
 import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoDatabase;
 import com.mongodb.hibernate.internal.NotYetImplementedException;
 import java.io.IOException;
 import java.io.NotSerializableException;
@@ -82,13 +83,14 @@ public final class MongoConnectionProvider implements ConnectionProvider, Config
     private static final long serialVersionUID = 1L;
 
     private @Nullable MongoClient mongoClient;
+    private @Nullable MongoDatabase mongoDatabase;
 
     @Override
     public Connection getConnection() throws SQLException {
         try {
             // mongoClient should have been set in configure(Map<String,Object>)
             ClientSession clientSession = castNonNull(mongoClient).startSession();
-            return new MongoConnection(clientSession);
+            return new MongoConnection(mongoDatabase, clientSession);
         } catch (RuntimeException e) {
             throw new SQLException("Failed to start session", e);
         }
@@ -143,6 +145,10 @@ public final class MongoConnectionProvider implements ConnectionProvider, Config
 
         var clientSettings = clientSettingsBuilder.build();
         this.mongoClient = MongoClients.create(clientSettings);
+        var database = connectionString.getDatabase();
+        if (database != null) {
+            this.mongoDatabase = mongoClient.getDatabase(database);
+        }
     }
 
     @Override

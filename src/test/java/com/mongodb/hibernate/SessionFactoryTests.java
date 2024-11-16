@@ -29,11 +29,13 @@ import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.service.spi.ServiceException;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 class SessionFactoryTests {
 
     @Test
+    @Disabled("blocked by HIBERNATE-26 or evegreen mongodb integration test configuration")
     void testSuccess() {
         buildSessionFactory(Map.of(JAKARTA_JDBC_URL, "mongodb://localhost/test"));
     }
