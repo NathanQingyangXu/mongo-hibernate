@@ -115,6 +115,7 @@ dependencies {
 
     integrationTestImplementation(libs.junit.jupiter)
     integrationTestImplementation(libs.logback.classic)
+    integrationTestImplementation(libs.hibernate.testing)
     integrationTestRuntimeOnly(libs.junit.platform.launcher)
 
     errorprone(libs.nullaway)
@@ -125,5 +126,7 @@ dependencies {
     implementation(libs.hibernate.core)
     implementation(libs.mongo.java.driver.sync)
     implementation(libs.sl4j.api)
+    implementation(libs.guava)
+    implementation(libs.mockito.core)
 }
 
