@@ -16,9 +16,9 @@
 
 package com.mongodb.hibernate.jdbc;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatCode;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.Answers.RETURNS_SMART_NULLS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.same;
@@ -28,7 +28,6 @@ import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoDatabase;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLSyntaxErrorException;
 import org.bson.BsonDocument;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -58,10 +57,10 @@ class MongoStatementTests {
     void testNoExceptionThrownWhenCloseStatementClosed() {
         // given
         mongoStatement.close();
-        assertTrue(mongoStatement.isClosed());
+        assertThat(mongoStatement.isClosed()).isTrue();
 
         // when && then
-        assertDoesNotThrow(() -> mongoStatement.close());
+        assertThatCode(() -> mongoStatement.close()).doesNotThrowAnyException();
     }
 
     @Nested
@@ -77,11 +76,11 @@ class MongoStatementTests {
                     """;
 
             // when && then
-            assertThrows(SQLSyntaxErrorException.class, () -> mongoStatement.executeUpdate(invalidMql));
+            assertThatThrownBy(() -> mongoStatement.executeUpdate(invalidMql)).isInstanceOf(SQLException.class);
         }
 
         @Test
-        @DisplayName("SQLException is thrown in event of unsupported command type")
+        @DisplayName("SQLFeatureNotSupportedException is thrown in event of unsupported command type")
         void testSQLExceptionThrownWhenUpdateCommandTypeUnsupported() {
             // given
             String mql =
@@ -97,7 +96,8 @@ class MongoStatementTests {
                     """;
 
             // when && then
-            assertThrows(SQLFeatureNotSupportedException.class, () -> mongoStatement.executeUpdate(mql));
+            assertThatThrownBy(() -> mongoStatement.executeUpdate(mql))
+                    .isInstanceOf(SQLFeatureNotSupportedException.class);
         }
 
         @Test
@@ -115,7 +115,7 @@ class MongoStatementTests {
                     """;
 
             // when && then
-            assertThrows(SQLException.class, () -> mongoStatement.executeUpdate(mql));
+            assertThatThrownBy(() -> mongoStatement.executeUpdate(mql)).isInstanceOf(SQLException.class);
         }
 
         @Test
@@ -134,7 +134,7 @@ class MongoStatementTests {
                     """;
 
             // when && then
-            assertThrows(SQLException.class, () -> mongoStatement.executeUpdate(mql));
+            assertThatThrownBy(() -> mongoStatement.executeUpdate(mql)).isInstanceOf(SQLException.class);
         }
     }
 }

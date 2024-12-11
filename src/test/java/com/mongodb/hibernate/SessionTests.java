@@ -16,8 +16,8 @@
 
 package com.mongodb.hibernate;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatCode;
 
 import java.sql.Connection;
 import org.hibernate.Session;
@@ -62,37 +62,43 @@ class SessionTests {
 
     @Test
     void testDoWork() {
-        assertDoesNotThrow(() -> session.doWork(connection -> {}));
+        assertThatCode(() -> session.doWork(connection -> {})).doesNotThrowAnyException();
     }
 
     @Test
     void testCreateStatement() {
-        assertDoesNotThrow(() -> session.doWork(Connection::createStatement));
+        assertThatCode(() -> session.doWork(Connection::createStatement)).doesNotThrowAnyException();
     }
 
-    @Test
-    void testBeginTransaction() {
-        assertDoesNotThrow(() -> session.beginTransaction().commit());
+    @Nested
+    class BeginTransactionTests {
+
+        @Test
+        void testCommit() {
+            assertThatCode(() -> session.beginTransaction().commit()).doesNotThrowAnyException();
+        }
+
+        @Test
+        void testRollback() {
+            assertThatCode(() -> session.beginTransaction().rollback()).doesNotThrowAnyException();
+        }
     }
 
     @Nested
     class MongoStatementTests {
 
-        private static final String COLLECTION_NAME = "books";
-
         @BeforeEach
         void setUp() {
             session.doWork(conn -> {
-                conn.createStatement()
-                        .executeUpdate(
-                                """
+                var stmt = conn.createStatement();
+                stmt.executeUpdate(
+                        """
                         {
-                            delete: "%s",
+                            delete: "books",
                             deletes: [
                                 { q: {}, limit: 0 }
                             ]
-                        }"""
-                                        .formatted(COLLECTION_NAME));
+                        }""");
             });
         }
 
@@ -102,47 +108,44 @@ class SessionTests {
             private static final String INSERT_MQL =
                     """
                      {
-                                insert: "%s",
-                                documents: [
-                                    {
-                                        title: "War and Peace",
-                                        author: "Leo Tolstoy",
-                                        outOfStock: false
-                                    },
-                                    {
-                                        title: "Anna Karenina",
-                                        author: "Leo Tolstoy",
-                                        outOfStock: false
-                                    },
-                                    {
-                                        title: "Resurrection",
-                                        author: "Leo Tolstoy",
-                                        outOfStock: false
-                                    },
-                                    {
-                                        title: "Crime and Punishment",
-                                        author: "Fyodor Dostoevsky",
-                                        outOfStock: false
-                                    },
-                                    {
-                                        title: "The Brothers Karamazov",
-                                        author: "Fyodor Dostoevsky",
-                                        outOfStock: false
-                                    },
-                                    {
-                                        title: "Fathers and Sons",
-                                        author: "Ivan Turgenev",
-                                        outOfStock: false
-                                    }
-                                ]
-                            }"""
-                            .formatted(COLLECTION_NAME);
+                        insert: "books",
+                        documents: [
+                            {
+                                title: "War and Peace",
+                                author: "Leo Tolstoy",
+                                outOfStock: false
+                            },
+                            {
+                                title: "Anna Karenina",
+                                author: "Leo Tolstoy",
+                                outOfStock: false
+                            },
+                            {
+                                title: "Resurrection",
+                                author: "Leo Tolstoy",
+                                outOfStock: false
+                            },
+                            {
+                                title: "Crime and Punishment",
+                                author: "Fyodor Dostoevsky",
+                                outOfStock: false
+                            },
+                            {
+                                title: "The Brothers Karamazov",
+                                author: "Fyodor Dostoevsky",
+                                outOfStock: false
+                            },
+                            {
+                                title: "Fathers and Sons",
+                                author: "Ivan Turgenev",
+                                outOfStock: false
+                            }
+                        ]
+                    }""";
 
             @Test
             void testInsert() {
-                session.doWork(connection -> {
-                    assertExecuteUpdate(INSERT_MQL, 6);
-                });
+                session.doWork(connection -> assertExecuteUpdate(INSERT_MQL, 6));
             }
 
             @Test
@@ -156,42 +159,41 @@ class SessionTests {
                 // when && then
                 var updateMql =
                         """
-                            {
-                                update: "%s",
-                                updates: [
-                                    {
-                                        q: { author: "Leo Tolstoy" },
-                                        u: {
-                                            $set: { outOfStock: true }
-                                        },
-                                        multi: true
-                                    }
-                                ]
-                            }"""
-                                .formatted(COLLECTION_NAME);
+                        {
+                            update: "books",
+                            updates: [
+                                {
+                                    q: { author: "Leo Tolstoy" },
+                                    u: {
+                                        $set: { outOfStock: true }
+                                    },
+                                    multi: true
+                                }
+                            ]
+                        }""";
                 assertExecuteUpdate(updateMql, 3);
+
                 updateMql =
                         """
-                            {
-                                update: "%s",
-                                updates: [
-                                    {
-                                        q: { author: "Fyodor Dostoevsky" },
-                                        u: {
-                                            $set: { outOfStock: true }
-                                        },
-                                        multi: false
+                        {
+                            update: "books",
+                            updates: [
+                                {
+                                    q: { author: "Fyodor Dostoevsky" },
+                                    u: {
+                                        $set: { outOfStock: true }
                                     },
-                                    {
-                                        q: { author: "Ivan Turgenev" },
-                                        u: {
-                                            $set: { outOfStock: true }
-                                        }
-                                        multi: true
+                                    multi: false
+                                },
+                                {
+                                    q: { author: "Ivan Turgenev" },
+                                    u: {
+                                        $set: { outOfStock: true }
                                     }
-                                ]
-                            }"""
-                                .formatted(COLLECTION_NAME);
+                                    multi: true
+                                }
+                            ]
+                        }""";
                 assertExecuteUpdate(updateMql, 2);
             }
 
@@ -207,7 +209,7 @@ class SessionTests {
                 var deleteMql =
                         """
                         {
-                            delete: "%s",
+                            delete: "books",
                             deletes: [
                                 {
                                     q: { author: "Fyodor Dostoevsky" },
@@ -218,28 +220,27 @@ class SessionTests {
                                     limit: 0
                                 }
                             ]
-                        }"""
-                                .formatted(COLLECTION_NAME);
+                        }""";
                 assertExecuteUpdate(deleteMql, 3);
+
                 deleteMql =
                         """
                         {
-                            delete: "%s",
+                            delete: "books",
                             deletes: [
                                 {
                                     q: { author: "Leo Tolstoy" },
                                     limit: 1
                                 }
                             ]
-                        }"""
-                                .formatted(COLLECTION_NAME);
+                        }""";
                 assertExecuteUpdate(deleteMql, 1);
             }
 
             private void assertExecuteUpdate(String mql, int expectedRowCount) {
                 session.doWork(connection -> {
-                    var statement = connection.createStatement();
-                    assertEquals(expectedRowCount, statement.executeUpdate(mql));
+                    var stmt = connection.createStatement();
+                    assertThat(stmt.executeUpdate(mql)).isEqualTo(expectedRowCount);
                 });
             }
         }
