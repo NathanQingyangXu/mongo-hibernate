@@ -70,6 +70,11 @@ class SessionTests {
         assertDoesNotThrow(() -> session.doWork(Connection::createStatement));
     }
 
+    @Test
+    void testBeginTransaction() {
+        assertDoesNotThrow(() -> session.beginTransaction().commit());
+    }
+
     @Nested
     class MongoStatementTests {
 

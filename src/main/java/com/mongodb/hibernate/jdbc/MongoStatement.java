@@ -72,6 +72,7 @@ final class MongoStatement extends StatementAdapter {
                     commandType, UPDATE_COMMAND_TYPES_SUPPORTED));
         }
         try {
+            mongoConnection.startTransactionIfNeeded();
             var result = assertNotNull(mongoDatabase).runCommand(clientSession, command);
             return result.getInteger("n");
         } catch (RuntimeException e) {

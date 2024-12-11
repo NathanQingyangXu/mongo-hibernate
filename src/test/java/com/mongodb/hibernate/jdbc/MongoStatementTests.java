@@ -47,6 +47,9 @@ class MongoStatementTests {
     @Mock(answer = RETURNS_SMART_NULLS)
     private ClientSession clientSession;
 
+    @Mock(answer = RETURNS_SMART_NULLS)
+    private MongoConnection mongoConnection;
+
     @InjectMocks
     private MongoStatement mongoStatement;
 
@@ -70,7 +73,7 @@ class MongoStatementTests {
             // given
             String invalidMql =
                     """
-                    {insert: "books"'", documents: [ { title: "War and Peace" }
+                    {insert: "books"'", documents: [ { title: "War and Peace" } ]
                     """;
 
             // when && then
