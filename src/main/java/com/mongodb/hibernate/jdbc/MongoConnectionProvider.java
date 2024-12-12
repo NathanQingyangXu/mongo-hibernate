@@ -25,6 +25,8 @@ import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import com.mongodb.hibernate.MongoSessionFactory;
+import com.mongodb.hibernate.ReadWriteConcerns;
 import com.mongodb.hibernate.internal.VisibleForTesting;
 import com.mongodb.hibernate.service.MongoClientCustomizer;
 import java.io.IOException;
@@ -72,11 +74,15 @@ public final class MongoConnectionProvider
 
     private @Nullable MongoClientCustomizer mongoClientCustomizer;
 
+    private @Nullable MongoSessionFactory mongoSessionFactory;
+
+    private @Nullable ConnectionString connectionString;
+
     @Override
     public Connection getConnection() throws SQLException {
         try {
             var clientSession = assertNotNull(mongoClient).startSession();
-            return new MongoConnection(assertNotNull(mongoClient), clientSession);
+            return new MongoConnection(assertNotNull(mongoClient), clientSession, this);
         } catch (RuntimeException e) {
             throw new SQLException("Failed to start session", e);
         }
@@ -119,6 +125,7 @@ public final class MongoConnectionProvider
             clientSettingsBuilder = MongoClientSettings.builder();
             mongoClientCustomizer.customize(clientSettingsBuilder, connectionString);
         } else {
+            this.connectionString = connectionString;
             clientSettingsBuilder = MongoClientSettings.builder().applyConnectionString(connectionString);
         }
         mongoClient = MongoClients.create(clientSettingsBuilder.build());
@@ -165,5 +172,17 @@ public final class MongoConnectionProvider
     @VisibleForTesting(otherwise = PRIVATE)
     @Nullable MongoClient getMongoClient() {
         return mongoClient;
+    }
+
+    public void setSessionFactory(MongoSessionFactory mongoSessionFactory) {
+        this.mongoSessionFactory = mongoSessionFactory;
+        if (connectionString != null) {
+            var clientReadWriteConcerns = new ReadWriteConcerns(connectionString.getReadConcern(), connectionString.getWriteConcern());
+            this.mongoSessionFactory.setParentReadWriteConcerns(clientReadWriteConcerns);
+        }
+    }
+
+    @Nullable MongoSessionFactory getMongoSessionFactory() {
+        return mongoSessionFactory;
     }
 }

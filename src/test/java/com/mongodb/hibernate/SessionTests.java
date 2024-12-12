@@ -76,6 +76,11 @@ class SessionTests {
         assertDoesNotThrow(() -> session.doWork(Connection::createStatement));
     }
 
+    @Test
+    void testUnwrapToMongoSession() {
+        assertDoesNotThrow(() -> session.unwrap(MongoSession.class).close());
+    }
+
     @Nested
     class MongoStatementTests {
 

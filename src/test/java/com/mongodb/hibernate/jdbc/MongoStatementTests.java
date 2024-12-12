@@ -124,7 +124,7 @@ class MongoStatementTests {
                     {
                           delete: "orders",
                           deletes: [ { q: { status: "D" }, limit: 1 } ]
-                       }
+                    }
                     """;
 
             // when && then

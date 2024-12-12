@@ -16,8 +16,12 @@
 
 package com.mongodb.hibernate.jdbc;
 
+import static com.mongodb.hibernate.internal.MongoAssertions.assertNotNull;
+
+import com.mongodb.TransactionOptions;
 import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
+import com.mongodb.hibernate.MongoSession;
 import com.mongodb.hibernate.internal.NotYetImplementedException;
 import java.sql.Array;
 import java.sql.Blob;
@@ -45,14 +49,18 @@ final class MongoConnection extends ConnectionAdapter {
 
     private final MongoClient mongoClient;
     private final ClientSession clientSession;
+    private final MongoConnectionProvider mongoConnectionProvider;
 
     private boolean closed;
 
     private boolean autoCommit;
 
-    MongoConnection(MongoClient mongoClient, ClientSession clientSession) {
+    MongoConnection(
+            MongoClient mongoClient, ClientSession clientSession, MongoConnectionProvider mongoConnectionProvider) {
         this.mongoClient = mongoClient;
         this.clientSession = clientSession;
+        this.mongoConnectionProvider = mongoConnectionProvider;
+
         autoCommit = true;
     }
 
@@ -322,12 +330,22 @@ final class MongoConnection extends ConnectionAdapter {
      * @see MongoStatement#execute(String)
      * @see MongoStatement#executeBatch()
      */
-    void startTransactionIfNeeded() throws SQLException {
+    void startTransactionIfNeeded() {
         if (!autoCommit && !clientSession.hasActiveTransaction()) {
-            try {
-                clientSession.startTransaction();
-            } catch (RuntimeException e) {
-                throw new SQLException("Failed to start transaction", e);
+
+            var mongoSession = assertNotNull(mongoConnectionProvider.getMongoSessionFactory())
+                    .getCurrentSession()
+                    .unwrap(MongoSession.class);
+            var readConcern = mongoSession.getEffectiveCurrentTransactionReadConcern();
+            var writeConcern = mongoSession.getEffectiveCurrentTransactionWriteConcern();
+
+            if (readConcern == null && writeConcern == null) {
+                this.clientSession.startTransaction();
+            } else {
+                this.clientSession.startTransaction(TransactionOptions.builder()
+                        .readConcern(readConcern)
+                        .writeConcern(writeConcern)
+                        .build());
             }
         }
     }

@@ -41,4 +41,17 @@ public final class MongoAssertions {
         }
         return value;
     }
+
+    /**
+     * Throw AssertionError if the condition if false.
+     *
+     * @param name the name of the state that is being checked
+     * @param condition the condition about the parameter to check
+     * @throws AssertionError if the condition is false
+     */
+    public static void assertTrue(String name, boolean condition) {
+        if (!condition) {
+            throw new AssertionError("state should be: " + assertNotNull(name));
+        }
+    }
 }

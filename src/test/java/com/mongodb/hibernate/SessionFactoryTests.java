@@ -52,6 +52,14 @@ class SessionFactoryTests {
     }
 
     @Test
+    void testUnwrapToMongoSessionFactory() {
+        try (var sessionFactory = buildSessionFactory()) {
+            assertDoesNotThrow(
+                    () -> sessionFactory.unwrap(MongoSessionFactory.class).close());
+        }
+    }
+
+    @Test
     void testInTransaction() {
         try (var sessionFactory = buildSessionFactory()) {
             assertDoesNotThrow(() -> sessionFactory.inTransaction(session -> {}));
