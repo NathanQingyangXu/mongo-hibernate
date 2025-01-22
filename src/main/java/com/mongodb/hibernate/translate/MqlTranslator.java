@@ -16,7 +16,6 @@
 
 package com.mongodb.hibernate.translate;
 
-import com.google.common.reflect.TypeToken;
 import com.mongodb.hibernate.internal.NotYetImplementedException;
 import com.mongodb.hibernate.translate.mongoast.AstElement;
 import com.mongodb.hibernate.translate.mongoast.AstNode;
@@ -117,20 +116,16 @@ import org.hibernate.sql.model.internal.TableInsertCustomSql;
 import org.hibernate.sql.model.internal.TableInsertStandard;
 import org.hibernate.sql.model.internal.TableUpdateCustomSql;
 import org.hibernate.sql.model.internal.TableUpdateStandard;
-import org.jspecify.annotations.Nullable;
 
 final class MqlTranslator<T extends JdbcOperation & MutationOperation> implements SqlAstTranslator<T> {
 
     private final SessionFactoryImplementor sessionFactory;
     private final Statement statement;
 
-    private final SqlAstWalkerShelf sqlAstWalkerShelf = SqlAstWalkerShelf.emptyShelf();
+    private final AstVisitorValueHolder astReturnValueHolder = AstVisitorValueHolder.emptyHolder();
 
     private final List<JdbcParameterBinder> parameterBinders = new ArrayList<>();
     private final JdbcParametersImpl jdbcParameters = new JdbcParametersImpl();
-
-    private @Nullable AstNode rootAstNode;
-    private @Nullable JdbcParameterBindings jdbcParameterBindings;
 
     MqlTranslator(SessionFactoryImplementor sessionFactory, Statement statement) {
         this.sessionFactory = sessionFactory;
@@ -170,23 +165,19 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
     @Override
     @SuppressWarnings({"unchecked"})
     public T translate(JdbcParameterBindings jdbcParameterBindings, QueryOptions queryOptions) {
-        this.jdbcParameterBindings = jdbcParameterBindings;
         if (statement instanceof TableMutation) {
             TableMutation<T> tableMutation = (TableMutation<T>) statement;
             return translateTableMutation(tableMutation);
         }
-        throw new NotYetImplementedException("Out of scope of Milestone 1!");
+        throw new NotYetImplementedException("Out of scope of Milestone #1");
     }
 
     private T translateTableMutation(TableMutation<T> mutation) {
-        mutation.accept(this);
-        return (T) mutation.createMutationOperation(getMql(), parameterBinders);
+        var rootAstNode = astReturnValueHolder.getValue(AstNode.class, () -> mutation.accept(this));
+        return mutation.createMutationOperation(getMql(rootAstNode), parameterBinders);
     }
 
-    private String getMql() {
-        if (rootAstNode == null) {
-            return "";
-        }
+    private String getMql(AstNode rootAstNode) {
         var writer = new StringWriter();
         rootAstNode.render(new JsonWriter(writer));
         return writer.toString();
@@ -200,13 +191,13 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
         var tableName = tableInsertStandard.getTableName();
         var astElements = new ArrayList<AstElement>(tableInsertStandard.getNumberOfValueBindings());
         tableInsertStandard.forEachValueBinding((columnPosition, columnValueBinding) -> {
-            var astValue = sqlAstWalkerShelf.unshelve(
-                    TypeToken.of(AstValue.class),
+            var astValue = astReturnValueHolder.getValue(
+                    AstValue.class,
                     () -> columnValueBinding.getValueExpression().accept(this));
             var columnExpression = columnValueBinding.getColumnReference().getColumnExpression();
             astElements.add(new AstElement(columnExpression, astValue));
         });
-        rootAstNode = new AstInsertCommand(tableName, astElements);
+        astReturnValueHolder.setValue(AstNode.class, new AstInsertCommand(tableName, astElements));
     }
 
     @Override
@@ -220,7 +211,7 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
         var jdbcParameter = columnWriteFragment.getParameters().iterator().next();
         parameterBinders.add(jdbcParameter.getParameterBinder());
         jdbcParameters.addParameter(jdbcParameter);
-        sqlAstWalkerShelf.shelve(TypeToken.of(AstValue.class), AstPlaceholder.INSTANCE);
+        astReturnValueHolder.setValue(AstValue.class, AstPlaceholder.INSTANCE);
     }
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
