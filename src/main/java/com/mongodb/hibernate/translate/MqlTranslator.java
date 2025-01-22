@@ -16,8 +16,6 @@
 
 package com.mongodb.hibernate.translate;
 
-import static com.mongodb.hibernate.internal.MongoAssertions.assertNotNull;
-
 import com.google.common.reflect.TypeToken;
 import com.mongodb.hibernate.internal.NotYetImplementedException;
 import com.mongodb.hibernate.translate.mongoast.AstElement;
@@ -573,9 +571,7 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
     }
 
     @Override
-    public void visitStandardTableDelete(TableDeleteStandard tableDeleteStandard) {
-
-    }
+    public void visitStandardTableDelete(TableDeleteStandard tableDeleteStandard) {}
 
     @Override
     public void visitCustomTableDelete(TableDeleteCustomSql tableDeleteCustomSql) {
@@ -583,9 +579,7 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
     }
 
     @Override
-    public void visitStandardTableUpdate(TableUpdateStandard tableUpdateStandard) {
-
-    }
+    public void visitStandardTableUpdate(TableUpdateStandard tableUpdateStandard) {}
 
     @Override
     public void visitOptionalTableUpdate(OptionalTableUpdate optionalTableUpdate) {
