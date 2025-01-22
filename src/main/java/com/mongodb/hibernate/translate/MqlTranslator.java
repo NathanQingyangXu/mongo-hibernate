@@ -108,6 +108,7 @@ import org.hibernate.sql.exec.spi.JdbcParameterBinder;
 import org.hibernate.sql.exec.spi.JdbcParameterBindings;
 import org.hibernate.sql.model.MutationOperation;
 import org.hibernate.sql.model.ast.ColumnWriteFragment;
+import org.hibernate.sql.model.ast.TableInsert;
 import org.hibernate.sql.model.ast.TableMutation;
 import org.hibernate.sql.model.internal.OptionalTableUpdate;
 import org.hibernate.sql.model.internal.TableDeleteCustomSql;
@@ -116,6 +117,8 @@ import org.hibernate.sql.model.internal.TableInsertCustomSql;
 import org.hibernate.sql.model.internal.TableInsertStandard;
 import org.hibernate.sql.model.internal.TableUpdateCustomSql;
 import org.hibernate.sql.model.internal.TableUpdateStandard;
+import org.hibernate.sql.model.jdbc.JdbcMutationOperation;
+import org.mockito.Mockito;
 
 final class MqlTranslator<T extends JdbcOperation & MutationOperation> implements SqlAstTranslator<T> {
 
@@ -167,17 +170,21 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
     public T translate(JdbcParameterBindings jdbcParameterBindings, QueryOptions queryOptions) {
         if (statement instanceof TableMutation) {
             TableMutation<T> tableMutation = (TableMutation<T>) statement;
-            return translateTableMutation(tableMutation);
+            if (tableMutation instanceof TableInsert) {
+                return translateTableMutation(tableMutation);
+            } else {
+                return (T) Mockito.mock(JdbcMutationOperation.class);
+            }
         }
         throw new NotYetImplementedException("Out of scope of Milestone #1");
     }
 
     private T translateTableMutation(TableMutation<T> mutation) {
         var rootAstNode = astReturnValueHolder.getValue(AstNode.class, () -> mutation.accept(this));
-        return mutation.createMutationOperation(getMql(rootAstNode), parameterBinders);
+        return mutation.createMutationOperation(translateMongoAst(rootAstNode), parameterBinders);
     }
 
-    private String getMql(AstNode rootAstNode) {
+    private String translateMongoAst(AstNode rootAstNode) {
         var writer = new StringWriter();
         rootAstNode.render(new JsonWriter(writer));
         return writer.toString();

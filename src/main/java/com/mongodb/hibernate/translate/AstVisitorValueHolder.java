@@ -62,8 +62,8 @@ final class AstVisitorValueHolder {
      * of this class is the capability to restore previous state.
      *
      * @param valueType expected type of the data to be grabbed.
-     * @param valueSetter the {@code Runnable} wrapper of a void AST visitor method which is supposed to invoke {@link #setValue(TypeToken, Object)}
-     *     internally with type identical to the {@code valueType}.
+     * @param valueSetter the {@code Runnable} wrapper of a void AST visitor method which is supposed to invoke
+     *     {@link #setValue(TypeToken, Object)} internally with type identical to the {@code valueType}.
      * @return the grabbed value set by {@code valueSetter}
      * @param <T> generics type of the value returned
      */

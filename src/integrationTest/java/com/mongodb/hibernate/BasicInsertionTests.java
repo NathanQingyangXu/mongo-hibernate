@@ -28,28 +28,42 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 import org.bson.BsonDocument;
+import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
-import org.hibernate.testing.orm.junit.DomainModel;
-import org.hibernate.testing.orm.junit.SessionFactory;
-import org.hibernate.testing.orm.junit.SessionFactoryScope;
-import org.jspecify.annotations.Nullable;
+import org.jspecify.annotations.NullUnmarked;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-@SessionFactory(exportSchema = false)
-@DomainModel(annotatedClasses = BasicCrudTests.Book.class)
-class BasicCrudTests {
+@NullUnmarked
+class BasicInsertionTests {
+
+    private static SessionFactory sessionFactory;
+
+    @BeforeAll
+    static void beforeAll() {
+        sessionFactory = new Configuration().addAnnotatedClass(Book.class).buildSessionFactory();
+    }
+
+    @AfterAll
+    static void afterAll() {
+        if (sessionFactory != null) {
+            sessionFactory.close();
+        }
+    }
 
     @BeforeEach
     void setUp() {
-        getMongoCollection().drop();
+        onMongoCollection(MongoCollection::drop);
     }
 
     @Test
-    void test(SessionFactoryScope scope) {
-        scope.inTransaction(session -> {
+    void testInsertion() {
+        sessionFactory.inTransaction(session -> {
             var book = new Book();
             book.id = 1;
             book.title = "War and Peace";
@@ -57,7 +71,6 @@ class BasicCrudTests {
             book.publishYear = 1867;
             session.persist(book);
         });
-
         var expectedDocuments = Set.of(
                 BsonDocument.parse(
                         """
@@ -66,31 +79,38 @@ class BasicCrudTests {
                             title: "War and Peace",
                             author: "Leo Tolstoy",
                             publishYear: 1867
-                        }"""));
-        Assertions.assertEquals(expectedDocuments, getMongoCollection().find().into(new HashSet<>()));
+                        }
+                        """));
+        Assertions.assertEquals(expectedDocuments, getCollectionDocuments());
     }
 
-    private MongoCollection<BsonDocument> getMongoCollection() {
+    private void onMongoCollection(Consumer<MongoCollection<BsonDocument>> collectionConsumer) {
         var connectionString = new ConnectionString(new Configuration().getProperty(JAKARTA_JDBC_URL));
         try (var mongoClient = MongoClients.create(MongoClientSettings.builder()
                 .applyConnectionString(connectionString)
                 .build())) {
-            return mongoClient.getDatabase("mongo-hibernate-test").getCollection("books", BsonDocument.class);
+            var collection = mongoClient.getDatabase("mongo-hibernate-test").getCollection("books", BsonDocument.class);
+            ;
+            collectionConsumer.accept(collection);
         }
+        ;
+    }
+
+    private Set<BsonDocument> getCollectionDocuments() {
+        var documents = new HashSet<BsonDocument>();
+        onMongoCollection(collection -> collection.find().into(documents));
+        return documents;
     }
 
     @Entity(name = "Book")
     @Table(name = "books")
     static class Book {
-
         @Id
         @Column(name = "_id")
         int id;
 
-        @Nullable String title;
-
-        @Nullable String author;
-
+        String title;
+        String author;
         int publishYear;
     }
 }
