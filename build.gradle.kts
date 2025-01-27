@@ -71,6 +71,29 @@ val integrationTest = task<Test>("integrationTest") {
 tasks.check { dependsOn(integrationTest) }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Class file Transform
+
+sourceSets {
+    create("transform")
+}
+
+val transformImplementation by configurations.getting {
+    extendsFrom(configurations.implementation.get())
+}
+val transformRuntimeOnly: Configuration by configurations.getting
+
+configurations["transformRuntimeOnly"].extendsFrom(configurations.runtimeOnly.get())
+
+val transform = tasks.register<JavaExec>("transform") {
+    mainClass.set("com.mongodb.hibernate.transform.TransformMain")
+    classpath = sourceSets["transform"].runtimeClasspath
+    args("${layout.buildDirectory.asFile.get()}/generated/classes/transform")
+}
+
+tasks.compileJava { dependsOn(transform) }
+tasks.processResources { dependsOn(transform) }
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Static Analysis Tasks
 
 spotless {
@@ -118,15 +141,19 @@ dependencies {
     integrationTestImplementation(libs.hibernate.testing)
     integrationTestRuntimeOnly(libs.junit.platform.launcher)
 
+    transformImplementation(libs.asm)
+    transformImplementation(libs.reflections)
+    transformImplementation(libs.hibernate.core)
+
     errorprone(libs.nullaway)
     api(libs.jspecify)
 
     errorprone(libs.google.errorprone.core)
 
+    implementation(files("${layout.buildDirectory.asFile.get()}/generated/classes/transform"))
     implementation(libs.hibernate.core)
     implementation(libs.mongo.java.driver.sync)
     implementation(libs.sl4j.api)
-    implementation(libs.guava)
     implementation(libs.mockito.core)
 }
 

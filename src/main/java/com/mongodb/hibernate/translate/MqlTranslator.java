@@ -125,8 +125,6 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
     private final SessionFactoryImplementor sessionFactory;
     private final Statement statement;
 
-    private final AstVisitorValueHolder astReturnValueHolder = AstVisitorValueHolder.emptyHolder();
-
     private final List<JdbcParameterBinder> parameterBinders = new ArrayList<>();
     private final JdbcParametersImpl jdbcParameters = new JdbcParametersImpl();
 
@@ -173,14 +171,15 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
             if (tableMutation instanceof TableInsert) {
                 return translateTableMutation(tableMutation);
             } else {
+                // to be implemented later; currently mock is returned
                 return (T) Mockito.mock(JdbcMutationOperation.class);
             }
         }
-        throw new NotYetImplementedException("Out of scope of Milestone #1");
+        throw new NotYetImplementedException();
     }
 
     private T translateTableMutation(TableMutation<T> mutation) {
-        var rootAstNode = astReturnValueHolder.getValue(AstNode.class, () -> mutation.accept(this));
+        var rootAstNode = (AstNode) mutation.accept(this);
         return mutation.createMutationOperation(translateMongoAst(rootAstNode), parameterBinders);
     }
 
@@ -194,398 +193,399 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
     // Table Mutation: insertion
 
     @Override
-    public void visitStandardTableInsert(TableInsertStandard tableInsertStandard) {
+    public AstInsertCommand visitStandardTableInsert(TableInsertStandard tableInsertStandard) {
         var tableName = tableInsertStandard.getTableName();
         var astElements = new ArrayList<AstElement>(tableInsertStandard.getNumberOfValueBindings());
         tableInsertStandard.forEachValueBinding((columnPosition, columnValueBinding) -> {
-            var astValue = astReturnValueHolder.getValue(
-                    AstValue.class,
-                    () -> columnValueBinding.getValueExpression().accept(this));
-            var columnExpression = columnValueBinding.getColumnReference().getColumnExpression();
-            astElements.add(new AstElement(columnExpression, astValue));
+            var astValue = (AstValue) columnValueBinding.getValueExpression().accept(this);
+            if (astValue != null) {
+                var columnExpression = columnValueBinding.getColumnReference().getColumnExpression();
+                astElements.add(new AstElement(columnExpression, astValue));
+            }
         });
-        astReturnValueHolder.setValue(AstNode.class, new AstInsertCommand(tableName, astElements));
+        return new AstInsertCommand(tableName, astElements);
     }
 
     @Override
-    public void visitColumnWriteFragment(ColumnWriteFragment columnWriteFragment) {
-        if (columnWriteFragment.getParameters().isEmpty()) {
-            throw new NotYetImplementedException("maybe belongs to scope of Formula feature");
-        }
-        if (columnWriteFragment.getParameters().size() > 1) {
-            throw new NotYetImplementedException("belongs to the scope of Array or STRUCT feature");
+    public Object visitColumnWriteFragment(ColumnWriteFragment columnWriteFragment) {
+        if (columnWriteFragment.getParameters().size() != 1) {
+            throw new NotYetImplementedException();
         }
         var jdbcParameter = columnWriteFragment.getParameters().iterator().next();
         parameterBinders.add(jdbcParameter.getParameterBinder());
         jdbcParameters.addParameter(jdbcParameter);
-        astReturnValueHolder.setValue(AstValue.class, AstPlaceholder.INSTANCE);
+        return AstPlaceholder.INSTANCE;
     }
 
     // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     @Override
-    public void visitSelectStatement(SelectStatement selectStatement) {
+    public Object visitSelectStatement(SelectStatement selectStatement) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitDeleteStatement(DeleteStatement deleteStatement) {
+    public Object visitDeleteStatement(DeleteStatement deleteStatement) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitUpdateStatement(UpdateStatement updateStatement) {
+    public Object visitUpdateStatement(UpdateStatement updateStatement) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitInsertStatement(InsertSelectStatement insertSelectStatement) {
+    public Object visitInsertStatement(InsertSelectStatement insertSelectStatement) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitAssignment(Assignment assignment) {
+    public Object visitAssignment(Assignment assignment) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitQueryGroup(QueryGroup queryGroup) {
+    public Object visitQueryGroup(QueryGroup queryGroup) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitQuerySpec(QuerySpec querySpec) {
+    public Object visitQuerySpec(QuerySpec querySpec) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitSortSpecification(SortSpecification sortSpecification) {
+    public Object visitSortSpecification(SortSpecification sortSpecification) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitOffsetFetchClause(QueryPart queryPart) {
+    public Object visitOffsetFetchClause(QueryPart queryPart) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitSelectClause(SelectClause selectClause) {
+    public Object visitSelectClause(SelectClause selectClause) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitSqlSelection(SqlSelection sqlSelection) {
+    public Object visitSqlSelection(SqlSelection sqlSelection) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitFromClause(FromClause fromClause) {
+    public Object visitFromClause(FromClause fromClause) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitTableGroup(TableGroup tableGroup) {
+    public Object visitTableGroup(TableGroup tableGroup) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitTableGroupJoin(TableGroupJoin tableGroupJoin) {
+    public Object visitTableGroupJoin(TableGroupJoin tableGroupJoin) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitNamedTableReference(NamedTableReference namedTableReference) {
+    public Object visitNamedTableReference(NamedTableReference namedTableReference) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitValuesTableReference(ValuesTableReference valuesTableReference) {
+    public Object visitValuesTableReference(ValuesTableReference valuesTableReference) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitQueryPartTableReference(QueryPartTableReference queryPartTableReference) {
+    public Object visitQueryPartTableReference(QueryPartTableReference queryPartTableReference) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitFunctionTableReference(FunctionTableReference functionTableReference) {
+    public Object visitFunctionTableReference(FunctionTableReference functionTableReference) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitTableReferenceJoin(TableReferenceJoin tableReferenceJoin) {
+    public Object visitTableReferenceJoin(TableReferenceJoin tableReferenceJoin) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitColumnReference(ColumnReference columnReference) {
+    public Object visitColumnReference(ColumnReference columnReference) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitNestedColumnReference(NestedColumnReference nestedColumnReference) {
+    public Object visitNestedColumnReference(NestedColumnReference nestedColumnReference) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitAggregateColumnWriteExpression(AggregateColumnWriteExpression aggregateColumnWriteExpression) {
+    public Object visitAggregateColumnWriteExpression(AggregateColumnWriteExpression aggregateColumnWriteExpression) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitExtractUnit(ExtractUnit extractUnit) {
+    public Object visitExtractUnit(ExtractUnit extractUnit) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitFormat(Format format) {
+    public Object visitFormat(Format format) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitDistinct(Distinct distinct) {
+    public Object visitDistinct(Distinct distinct) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitOverflow(Overflow overflow) {
+    public Object visitOverflow(Overflow overflow) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitStar(Star star) {
+    public Object visitStar(Star star) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitTrimSpecification(TrimSpecification trimSpecification) {
+    public Object visitTrimSpecification(TrimSpecification trimSpecification) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitCastTarget(CastTarget castTarget) {
+    public Object visitCastTarget(CastTarget castTarget) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitBinaryArithmeticExpression(BinaryArithmeticExpression binaryArithmeticExpression) {
+    public Object visitBinaryArithmeticExpression(BinaryArithmeticExpression binaryArithmeticExpression) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitCaseSearchedExpression(CaseSearchedExpression caseSearchedExpression) {
+    public Object visitCaseSearchedExpression(CaseSearchedExpression caseSearchedExpression) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitCaseSimpleExpression(CaseSimpleExpression caseSimpleExpression) {
+    public Object visitCaseSimpleExpression(CaseSimpleExpression caseSimpleExpression) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitAny(Any any) {
+    public Object visitAny(Any any) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitEvery(Every every) {
+    public Object visitEvery(Every every) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitSummarization(Summarization summarization) {
+    public Object visitSummarization(Summarization summarization) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitOver(Over<?> over) {
+    public Object visitOver(Over<?> over) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitSelfRenderingExpression(SelfRenderingExpression selfRenderingExpression) {
+    public Object visitSelfRenderingExpression(SelfRenderingExpression selfRenderingExpression) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitSqlSelectionExpression(SqlSelectionExpression sqlSelectionExpression) {
+    public Object visitSqlSelectionExpression(SqlSelectionExpression sqlSelectionExpression) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitEntityTypeLiteral(EntityTypeLiteral entityTypeLiteral) {
+    public Object visitEntityTypeLiteral(EntityTypeLiteral entityTypeLiteral) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitEmbeddableTypeLiteral(EmbeddableTypeLiteral embeddableTypeLiteral) {
+    public Object visitEmbeddableTypeLiteral(EmbeddableTypeLiteral embeddableTypeLiteral) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitTuple(SqlTuple sqlTuple) {
+    public Object visitTuple(SqlTuple sqlTuple) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitCollation(Collation collation) {
+    public Object visitCollation(Collation collation) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitParameter(JdbcParameter jdbcParameter) {
+    public Object visitParameter(JdbcParameter jdbcParameter) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitJdbcLiteral(JdbcLiteral<?> jdbcLiteral) {
+    public Object visitJdbcLiteral(JdbcLiteral<?> jdbcLiteral) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitQueryLiteral(QueryLiteral<?> queryLiteral) {
+    public Object visitQueryLiteral(QueryLiteral<?> queryLiteral) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public <N extends Number> void visitUnparsedNumericLiteral(UnparsedNumericLiteral<N> unparsedNumericLiteral) {
+    public <N extends Number> Object visitUnparsedNumericLiteral(UnparsedNumericLiteral<N> unparsedNumericLiteral) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitUnaryOperationExpression(UnaryOperation unaryOperation) {
+    public Object visitUnaryOperationExpression(UnaryOperation unaryOperation) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitModifiedSubQueryExpression(ModifiedSubQueryExpression modifiedSubQueryExpression) {
+    public Object visitModifiedSubQueryExpression(ModifiedSubQueryExpression modifiedSubQueryExpression) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitBooleanExpressionPredicate(BooleanExpressionPredicate booleanExpressionPredicate) {
+    public Object visitBooleanExpressionPredicate(BooleanExpressionPredicate booleanExpressionPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitBetweenPredicate(BetweenPredicate betweenPredicate) {
+    public Object visitBetweenPredicate(BetweenPredicate betweenPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitFilterPredicate(FilterPredicate filterPredicate) {
+    public Object visitFilterPredicate(FilterPredicate filterPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitFilterFragmentPredicate(FilterPredicate.FilterFragmentPredicate filterFragmentPredicate) {
+    public Object visitFilterFragmentPredicate(FilterPredicate.FilterFragmentPredicate filterFragmentPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitSqlFragmentPredicate(SqlFragmentPredicate sqlFragmentPredicate) {
+    public Object visitSqlFragmentPredicate(SqlFragmentPredicate sqlFragmentPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitGroupedPredicate(GroupedPredicate groupedPredicate) {
+    public Object visitGroupedPredicate(GroupedPredicate groupedPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitInListPredicate(InListPredicate inListPredicate) {
+    public Object visitInListPredicate(InListPredicate inListPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitInSubQueryPredicate(InSubQueryPredicate inSubQueryPredicate) {
+    public Object visitInSubQueryPredicate(InSubQueryPredicate inSubQueryPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitInArrayPredicate(InArrayPredicate inArrayPredicate) {
+    public Object visitInArrayPredicate(InArrayPredicate inArrayPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitExistsPredicate(ExistsPredicate existsPredicate) {
+    public Object visitExistsPredicate(ExistsPredicate existsPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitJunction(Junction junction) {
+    public Object visitJunction(Junction junction) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitLikePredicate(LikePredicate likePredicate) {
+    public Object visitLikePredicate(LikePredicate likePredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitNegatedPredicate(NegatedPredicate negatedPredicate) {
+    public Object visitNegatedPredicate(NegatedPredicate negatedPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitNullnessPredicate(NullnessPredicate nullnessPredicate) {
+    public Object visitNullnessPredicate(NullnessPredicate nullnessPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitThruthnessPredicate(ThruthnessPredicate thruthnessPredicate) {
+    public Object visitThruthnessPredicate(ThruthnessPredicate thruthnessPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitRelationalPredicate(ComparisonPredicate comparisonPredicate) {
+    public Object visitRelationalPredicate(ComparisonPredicate comparisonPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitSelfRenderingPredicate(SelfRenderingPredicate selfRenderingPredicate) {
+    public Object visitSelfRenderingPredicate(SelfRenderingPredicate selfRenderingPredicate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitDurationUnit(DurationUnit durationUnit) {
+    public Object visitDurationUnit(DurationUnit durationUnit) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitDuration(Duration duration) {
+    public Object visitDuration(Duration duration) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitConversion(Conversion conversion) {
+    public Object visitConversion(Conversion conversion) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitCustomTableInsert(TableInsertCustomSql tableInsertCustomSql) {
+    public Object visitCustomTableInsert(TableInsertCustomSql tableInsertCustomSql) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitStandardTableDelete(TableDeleteStandard tableDeleteStandard) {}
+    public Object visitStandardTableDelete(TableDeleteStandard tableDeleteStandard) {
+        throw new NotYetImplementedException();
+    }
 
     @Override
-    public void visitCustomTableDelete(TableDeleteCustomSql tableDeleteCustomSql) {
+    public Object visitCustomTableDelete(TableDeleteCustomSql tableDeleteCustomSql) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitStandardTableUpdate(TableUpdateStandard tableUpdateStandard) {}
+    public Object visitStandardTableUpdate(TableUpdateStandard tableUpdateStandard) {
+        throw new NotYetImplementedException();
+    }
 
     @Override
-    public void visitOptionalTableUpdate(OptionalTableUpdate optionalTableUpdate) {
+    public Object visitOptionalTableUpdate(OptionalTableUpdate optionalTableUpdate) {
         throw new NotYetImplementedException();
     }
 
     @Override
-    public void visitCustomTableUpdate(TableUpdateCustomSql tableUpdateCustomSql) {
+    public Object visitCustomTableUpdate(TableUpdateCustomSql tableUpdateCustomSql) {
         throw new NotYetImplementedException();
     }
 }

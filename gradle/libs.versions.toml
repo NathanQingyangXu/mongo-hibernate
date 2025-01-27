@@ -14,7 +14,8 @@ mongo-java-driver-sync = "5.3.0"
 slf4j-api = "2.0.16"
 logback-classic = "1.5.15"
 mockito = "5.14.2"
-guava = "33.4.0-jre"
+asm = "9.7.1"
+reflections = "0.10.2"
 
 [libraries]
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
@@ -29,7 +30,8 @@ sl4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j-api" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback-classic" }
 mockito-junit-jupiter = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
-guava = { module = "com.google.guava:guava", version.ref = "guava" }
+asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+reflections = { module = "org.reflections:reflections", version.ref = "reflections" }
 
 [plugins]
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

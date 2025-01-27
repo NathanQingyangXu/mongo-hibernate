@@ -79,8 +79,7 @@ class BasicInsertionTests {
                             title: "War and Peace",
                             author: "Leo Tolstoy",
                             publishYear: 1867
-                        }
-                        """));
+                        }"""));
         Assertions.assertEquals(expectedDocuments, getCollectionDocuments());
     }
 
