@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
-package com.mongodb.hibernate.translate;
+package com.mongodb.hibernate.internal.mongoast.expression;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.bson.BsonWriter;
 
-import org.junit.jupiter.api.Test;
-
-class TypeReferenceTests {
-
-    @Test
-    void testToString() {
-        assertEquals("COLLECTION_NAME", TypeReference.COLLECTION_NAME.toString());
+/**
+ * Represents an {@link AstExpression} denoting the path of some field (which could be deeply embedded).
+ *
+ * @param path a string denotes some field's path, usually starting with {@code $}; never null
+ */
+public record AstFieldPathExpression(String path) implements AstExpression {
+    @Override
+    public void render(BsonWriter writer) {
+        writer.writeString(path);
     }
 }

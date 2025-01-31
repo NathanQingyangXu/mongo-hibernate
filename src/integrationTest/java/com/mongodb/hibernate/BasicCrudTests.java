@@ -42,8 +42,8 @@ import org.junit.jupiter.api.Test;
 
 @NullUnmarked
 @SessionFactory(exportSchema = false)
-@DomainModel(annotatedClasses = {BasicInsertionTests.Book.class, BasicInsertionTests.BookWithEmbeddedField.class})
-class BasicInsertionTests {
+@DomainModel(annotatedClasses = {BasicCrudTests.Book.class, BasicCrudTests.BookWithEmbeddedField.class})
+class BasicCrudTests {
 
     @BeforeEach
     void setUp() {
@@ -111,6 +111,27 @@ class BasicInsertionTests {
                             publishYear: 1867
                         }""");
         assertCollectionContainsOnly(expectedDocument);
+    }
+
+    @Test
+    void testLoad(SessionFactoryScope scope) {
+
+        // given
+        var book = new Book();
+        book.id = 1;
+        book.title = "War and Peace";
+        book.author = "Leo Tolstoy";
+        book.publishYear = 1867;
+
+        scope.inTransaction(session -> session.persist(book));
+
+        // when && then
+        var loadedBook = scope.fromTransaction(session -> {
+            var loaded = new Book();
+            session.load(loaded, 1);
+            return loaded;
+        });
+        assertThat(loadedBook).usingRecursiveComparison().isEqualTo(book);
     }
 
     private void onMongoCollection(Consumer<MongoCollection<BsonDocument>> collectionConsumer) {

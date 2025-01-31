@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-package com.mongodb.hibernate.translate;
+package com.mongodb.hibernate.internal.mongoast.command.aggregate;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import com.mongodb.hibernate.internal.mongoast.AstNode;
+import java.util.List;
+import org.bson.BsonWriter;
 
-import org.junit.jupiter.api.Test;
-
-class TypeReferenceTests {
-
-    @Test
-    void testToString() {
-        assertEquals("COLLECTION_NAME", TypeReference.COLLECTION_NAME.toString());
+public record AstPipeline(List<? extends AstStage> stages) implements AstNode {
+    @Override
+    public void render(BsonWriter writer) {
+        writer.writeStartArray();
+        stages.forEach(stage -> stage.render(writer));
+        writer.writeEndArray();
     }
 }

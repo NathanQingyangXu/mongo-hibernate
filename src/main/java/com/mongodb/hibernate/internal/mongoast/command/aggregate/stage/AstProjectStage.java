@@ -1,5 +1,5 @@
 /*
- * Copyright 2024-present MongoDB, Inc.
+ * Copyright 2025-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,32 +14,25 @@
  * limitations under the License.
  */
 
-package com.mongodb.hibernate.internal.mongoast.command;
+package com.mongodb.hibernate.internal.mongoast.command.aggregate.stage;
 
-import com.mongodb.hibernate.internal.mongoast.AstElement;
+import com.mongodb.hibernate.internal.mongoast.command.aggregate.AstStage;
 import java.util.List;
 import org.bson.BsonWriter;
 
 /**
- * Represents some insert MQL command which aims to insert one single document composed of a collection of
- * {@link AstElement}s.
+ * Represents some {@link AstStage} that selectively chooses which fields to be passed to next stage.
  *
- * <p>This class is not part of the public API and may be removed or changed at any time
- *
- * @param collection collection name; never {@code null}
- * @param elements the fields of the inserted document; never {@code null}
+ * @param specifications the collection of field filtering specification (e.g. inclusion and/or exclusion); never null.
  */
-public record AstInsertCommand(String collection, List<? extends AstElement> elements) implements AstCommand {
+public record AstProjectStage(List<? extends AstProjectStageSpecification> specifications) implements AstStage {
     @Override
     public void render(BsonWriter writer) {
         writer.writeStartDocument();
-        writer.writeString("insert", collection);
-        writer.writeName("documents");
-        writer.writeStartArray();
+        writer.writeName("$project");
         writer.writeStartDocument();
-        elements.forEach(element -> element.render(writer));
+        specifications.forEach(specification -> specification.render(writer));
         writer.writeEndDocument();
-        writer.writeEndArray();
         writer.writeEndDocument();
     }
 }

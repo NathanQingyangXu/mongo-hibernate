@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-package com.mongodb.hibernate.translate;
+package com.mongodb.hibernate.internal.mongoast.filter;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import com.mongodb.hibernate.internal.mongoast.AstNode;
 
-import org.junit.jupiter.api.Test;
-
-class TypeReferenceTests {
-
-    @Test
-    void testToString() {
-        assertEquals("COLLECTION_NAME", TypeReference.COLLECTION_NAME.toString());
-    }
-}
+/**
+ * Represents some {@link AstFilter} operation, e.g. comparing with some literal value.
+ *
+ * <p>The operation target is usually represented by another {@link AstNode}, e.g. {@link AstFilterField}.
+ *
+ * <p>This class is not part of the public API and may be removed or changed at any time
+ */
+public interface AstFilterOperation extends AstNode {}

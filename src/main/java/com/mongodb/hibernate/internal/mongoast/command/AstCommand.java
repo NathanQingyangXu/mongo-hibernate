@@ -14,16 +14,8 @@
  * limitations under the License.
  */
 
-package com.mongodb.hibernate.translate;
+package com.mongodb.hibernate.internal.mongoast.command;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import com.mongodb.hibernate.internal.mongoast.AstNode;
 
-import org.junit.jupiter.api.Test;
-
-class TypeReferenceTests {
-
-    @Test
-    void testToString() {
-        assertEquals("COLLECTION_NAME", TypeReference.COLLECTION_NAME.toString());
-    }
-}
+public interface AstCommand extends AstNode {}

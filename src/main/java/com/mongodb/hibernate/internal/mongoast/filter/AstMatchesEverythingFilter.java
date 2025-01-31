@@ -14,16 +14,24 @@
  * limitations under the License.
  */
 
-package com.mongodb.hibernate.translate;
+package com.mongodb.hibernate.internal.mongoast.filter;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.bson.BsonWriter;
 
-import org.junit.jupiter.api.Test;
+/**
+ * Represent an {@link AstFilter} which accepts everything.
+ *
+ * <p>One typical usage is for "delete all".
+ */
+public final class AstMatchesEverythingFilter implements AstFilter {
 
-class TypeReferenceTests {
+    public static AstMatchesEverythingFilter INSTANCE = new AstMatchesEverythingFilter();
 
-    @Test
-    void testToString() {
-        assertEquals("COLLECTION_NAME", TypeReference.COLLECTION_NAME.toString());
+    private AstMatchesEverythingFilter() {}
+
+    @Override
+    public void render(BsonWriter writer) {
+        writer.writeStartDocument();
+        writer.writeEndDocument();
     }
 }

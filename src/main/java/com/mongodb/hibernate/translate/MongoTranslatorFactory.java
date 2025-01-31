@@ -30,7 +30,7 @@ public final class MongoTranslatorFactory implements SqlAstTranslatorFactory {
     @Override
     public SqlAstTranslator<JdbcOperationQuerySelect> buildSelectTranslator(
             SessionFactoryImplementor sessionFactoryImplementor, SelectStatement selectStatement) {
-        return new SqlAstTranslatorAdapter<>();
+        return new MqlTranslator(sessionFactoryImplementor, selectStatement);
     }
 
     @Override

@@ -16,23 +16,46 @@
 
 package com.mongodb.hibernate.translate;
 
-import static com.mongodb.hibernate.translate.TypeReference.COLLECTION_MUTATION;
+import static com.mongodb.hibernate.translate.TypeReference.COLLECTION_NAME;
+import static com.mongodb.hibernate.translate.TypeReference.COMMAND;
+import static com.mongodb.hibernate.translate.TypeReference.FIELD_NAME;
 import static com.mongodb.hibernate.translate.TypeReference.FIELD_VALUE;
+import static com.mongodb.hibernate.translate.TypeReference.FILTER;
+import static com.mongodb.hibernate.translate.TypeReference.PROJECT_STAGE_SPECIFICATION;
 
 import com.mongodb.hibernate.internal.NotYetImplementedException;
 import com.mongodb.hibernate.internal.mongoast.AstElement;
-import com.mongodb.hibernate.internal.mongoast.AstNode;
 import com.mongodb.hibernate.internal.mongoast.AstPlaceholder;
+import com.mongodb.hibernate.internal.mongoast.command.AstAggregateCommand;
+import com.mongodb.hibernate.internal.mongoast.command.AstCommand;
 import com.mongodb.hibernate.internal.mongoast.command.AstInsertCommand;
+import com.mongodb.hibernate.internal.mongoast.command.aggregate.AstPipeline;
+import com.mongodb.hibernate.internal.mongoast.command.aggregate.AstStage;
+import com.mongodb.hibernate.internal.mongoast.command.aggregate.stage.AstMatchStage;
+import com.mongodb.hibernate.internal.mongoast.command.aggregate.stage.AstProjectStage;
+import com.mongodb.hibernate.internal.mongoast.command.aggregate.stage.AstProjectStageSpecification;
+import com.mongodb.hibernate.internal.mongoast.expression.AstExpression;
+import com.mongodb.hibernate.internal.mongoast.expression.AstFieldPathExpression;
+import com.mongodb.hibernate.internal.mongoast.filter.AstComparisonFilterOperation;
+import com.mongodb.hibernate.internal.mongoast.filter.AstComparisonFilterOperator;
+import com.mongodb.hibernate.internal.mongoast.filter.AstFieldOperationFilter;
+import com.mongodb.hibernate.internal.mongoast.filter.AstFilter;
+import com.mongodb.hibernate.internal.mongoast.filter.AstFilterField;
+import com.mongodb.hibernate.internal.mongoast.filter.AstMatchesEverythingFilter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.bson.json.JsonWriter;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.internal.util.collections.Stack;
+import org.hibernate.metamodel.mapping.ModelPartContainer;
+import org.hibernate.persister.entity.AbstractEntityPersister;
 import org.hibernate.persister.internal.SqlFragmentPredicate;
 import org.hibernate.query.spi.QueryOptions;
+import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.sqm.tree.expression.Conversion;
 import org.hibernate.sql.ast.Clause;
 import org.hibernate.sql.ast.SqlAstNodeRenderingMode;
@@ -55,6 +78,7 @@ import org.hibernate.sql.ast.tree.expression.DurationUnit;
 import org.hibernate.sql.ast.tree.expression.EmbeddableTypeLiteral;
 import org.hibernate.sql.ast.tree.expression.EntityTypeLiteral;
 import org.hibernate.sql.ast.tree.expression.Every;
+import org.hibernate.sql.ast.tree.expression.Expression;
 import org.hibernate.sql.ast.tree.expression.ExtractUnit;
 import org.hibernate.sql.ast.tree.expression.Format;
 import org.hibernate.sql.ast.tree.expression.JdbcLiteral;
@@ -94,6 +118,7 @@ import org.hibernate.sql.ast.tree.predicate.Junction;
 import org.hibernate.sql.ast.tree.predicate.LikePredicate;
 import org.hibernate.sql.ast.tree.predicate.NegatedPredicate;
 import org.hibernate.sql.ast.tree.predicate.NullnessPredicate;
+import org.hibernate.sql.ast.tree.predicate.Predicate;
 import org.hibernate.sql.ast.tree.predicate.SelfRenderingPredicate;
 import org.hibernate.sql.ast.tree.predicate.ThruthnessPredicate;
 import org.hibernate.sql.ast.tree.select.QueryGroup;
@@ -105,6 +130,7 @@ import org.hibernate.sql.ast.tree.select.SortSpecification;
 import org.hibernate.sql.ast.tree.update.Assignment;
 import org.hibernate.sql.ast.tree.update.UpdateStatement;
 import org.hibernate.sql.exec.spi.JdbcOperation;
+import org.hibernate.sql.exec.spi.JdbcOperationQuerySelect;
 import org.hibernate.sql.exec.spi.JdbcParameterBinder;
 import org.hibernate.sql.exec.spi.JdbcParameterBindings;
 import org.hibernate.sql.model.MutationOperation;
@@ -118,8 +144,10 @@ import org.hibernate.sql.model.internal.TableInsertCustomSql;
 import org.hibernate.sql.model.internal.TableInsertStandard;
 import org.hibernate.sql.model.internal.TableUpdateCustomSql;
 import org.hibernate.sql.model.internal.TableUpdateStandard;
+import org.hibernate.sql.results.jdbc.spi.JdbcValuesMappingProducer;
+import org.jspecify.annotations.Nullable;
 
-final class MqlTranslator<T extends JdbcOperation & MutationOperation> implements SqlAstTranslator<T> {
+final class MqlTranslator<T extends JdbcOperation> implements SqlAstTranslator<T> {
 
     private final SessionFactoryImplementor sessionFactory;
     private final Statement statement;
@@ -127,6 +155,7 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
     private final AstVisitorValueHolder astVisitorValueHolder = new AstVisitorValueHolder();
 
     private final List<JdbcParameterBinder> parameterBinders = new ArrayList<>();
+    private final Set<String> affectedTableNames = new HashSet<>();
 
     MqlTranslator(SessionFactoryImplementor sessionFactory, Statement statement) {
         this.sessionFactory = sessionFactory;
@@ -166,25 +195,44 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
     @Override
     @SuppressWarnings({"unchecked"})
     public T translate(JdbcParameterBindings jdbcParameterBindings, QueryOptions queryOptions) {
-        if (statement instanceof TableMutation) {
-            TableMutation<T> tableMutation = (TableMutation<T>) statement;
-            if (tableMutation instanceof TableInsert) {
-                return translateTableMutation(tableMutation);
+        if (statement instanceof TableMutation<?> tableMutation) {
+            if (statement instanceof TableInsert) {
+                return (T) translateTableMutation(tableMutation);
             } else {
                 return (T) new JdbcMutationOperationAdapter();
             }
         }
+        if (statement instanceof SelectStatement selectStatement) {
+            return (T) translateSelect(selectStatement);
+        }
         throw new NotYetImplementedException();
     }
 
-    private T translateTableMutation(TableMutation<T> mutation) {
-        var rootAstNode = astVisitorValueHolder.getValue(COLLECTION_MUTATION, () -> mutation.accept(this));
-        return mutation.createMutationOperation(translateMongoAst(rootAstNode), parameterBinders);
+    private JdbcOperationQuerySelect translateSelect(SelectStatement selectStatement) {
+        var selectCommand = astVisitorValueHolder.getValue(COMMAND, () -> visitSelectStatement(selectStatement));
+
+        return new JdbcOperationQuerySelect(
+                translateMongoCommand(selectCommand),
+                parameterBinders,
+                buildJdbcValuesMappingProducer(selectStatement),
+                affectedTableNames);
     }
 
-    private String translateMongoAst(AstNode rootAstNode) {
+    private JdbcValuesMappingProducer buildJdbcValuesMappingProducer(SelectStatement selectStatement) {
+        return getSessionFactory()
+                .getFastSessionServices()
+                .getJdbcValuesMappingProducerProvider()
+                .buildMappingProducer(selectStatement, getSessionFactory());
+    }
+
+    private MutationOperation translateTableMutation(TableMutation<?> tableMutation) {
+        var rootAstNode = astVisitorValueHolder.getValue(COMMAND, () -> tableMutation.accept(this));
+        return tableMutation.createMutationOperation(translateMongoCommand(rootAstNode), parameterBinders);
+    }
+
+    private static String translateMongoCommand(AstCommand astCommand) {
         var writer = new StringWriter();
-        rootAstNode.render(new JsonWriter(writer));
+        astCommand.render(new JsonWriter(writer));
         return writer.toString();
     }
 
@@ -201,7 +249,7 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
             var columnExpression = columnValueBinding.getColumnReference().getColumnExpression();
             astElements.add(new AstElement(columnExpression, astValue));
         }
-        astVisitorValueHolder.setValue(COLLECTION_MUTATION, new AstInsertCommand(tableName, astElements));
+        astVisitorValueHolder.setValue(COMMAND, new AstInsertCommand(tableName, astElements));
     }
 
     @Override
@@ -218,7 +266,80 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
 
     @Override
     public void visitSelectStatement(SelectStatement selectStatement) {
-        throw new NotYetImplementedException();
+        selectStatement.getQueryPart().accept(this);
+    }
+
+    @Override
+    public void visitQuerySpec(QuerySpec querySpec) {
+        var tableName = astVisitorValueHolder.getValue(
+                COLLECTION_NAME, () -> querySpec.getFromClause().accept(this));
+        var stageList = new ArrayList<AstStage>();
+
+        var filter = renderWhereClause(querySpec.getWhereClauseRestrictions());
+        stageList.add(new AstMatchStage(filter));
+
+        List<AstProjectStageSpecification> projectStageSpecifications = astVisitorValueHolder.getValue(
+                PROJECT_STAGE_SPECIFICATION, () -> visitSelectClause(querySpec.getSelectClause()));
+        stageList.add(new AstProjectStage(projectStageSpecifications));
+
+        astVisitorValueHolder.setValue(COMMAND, new AstAggregateCommand(tableName, new AstPipeline(stageList)));
+    }
+
+    @Override
+    public void visitFromClause(FromClause fromClause) {
+        var tableGroups = fromClause.getRoots();
+        if (tableGroups.size() != 1) {
+            throw new NotYetImplementedException();
+        }
+        var tableGroup = tableGroups.iterator().next();
+        ModelPartContainer modelPart = tableGroup.getModelPart();
+        if (modelPart instanceof AbstractEntityPersister) {
+            String[] querySpaces = (String[]) ((AbstractEntityPersister) modelPart).getQuerySpaces();
+            affectedTableNames.addAll(Arrays.asList(querySpaces));
+        }
+        tableGroup.getPrimaryTableReference().accept(this);
+    }
+
+    @Override
+    public void visitNamedTableReference(NamedTableReference namedTableReference) {
+        astVisitorValueHolder.setValue(COLLECTION_NAME, namedTableReference.getTableExpression());
+    }
+
+    private AstFilter renderWhereClause(@Nullable Predicate whereClauseRestrictions) {
+        if (whereClauseRestrictions == null || whereClauseRestrictions.isEmpty()) {
+            return AstMatchesEverythingFilter.INSTANCE;
+        }
+        return astVisitorValueHolder.getValue(FILTER, () -> whereClauseRestrictions.accept(this));
+    }
+
+    @Override
+    public void visitRelationalPredicate(ComparisonPredicate comparisonPredicate) {
+        astVisitorValueHolder.setValue(
+                FILTER,
+                renderComparisonStandard(
+                        comparisonPredicate.getLeftHandExpression(),
+                        comparisonPredicate.getOperator(),
+                        comparisonPredicate.getRightHandExpression()));
+    }
+
+    private AstFilter renderComparisonStandard(Expression lhs, ComparisonOperator operator, Expression rhs) {
+        var fieldName = astVisitorValueHolder.getValue(FIELD_NAME, () -> lhs.accept(this));
+        var value = astVisitorValueHolder.getValue(FIELD_VALUE, () -> rhs.accept(this));
+        return new AstFieldOperationFilter(
+                new AstFilterField(fieldName),
+                new AstComparisonFilterOperation(getComparisonFilterOperator(operator), value));
+    }
+
+    private AstComparisonFilterOperator getComparisonFilterOperator(ComparisonOperator operator) {
+        return switch (operator) {
+            case EQUAL -> AstComparisonFilterOperator.EQ;
+            case NOT_EQUAL -> AstComparisonFilterOperator.NE;
+            case LESS_THAN -> AstComparisonFilterOperator.LT;
+            case LESS_THAN_OR_EQUAL -> AstComparisonFilterOperator.LTE;
+            case GREATER_THAN -> AstComparisonFilterOperator.GT;
+            case GREATER_THAN_OR_EQUAL -> AstComparisonFilterOperator.GTE;
+            default -> throw new NotYetImplementedException("unknown operator: " + operator.name());
+        };
     }
 
     @Override
@@ -247,11 +368,6 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
     }
 
     @Override
-    public void visitQuerySpec(QuerySpec querySpec) {
-        throw new NotYetImplementedException();
-    }
-
-    @Override
     public void visitSortSpecification(SortSpecification sortSpecification) {
         throw new NotYetImplementedException();
     }
@@ -263,16 +379,44 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
 
     @Override
     public void visitSelectClause(SelectClause selectClause) {
-        throw new NotYetImplementedException();
+        astVisitorValueHolder.setValue(PROJECT_STAGE_SPECIFICATION, renderSqlSelections(selectClause));
+    }
+
+    private List<AstProjectStageSpecification> renderSqlSelections(SelectClause selectClause) {
+        var sqlSelections = selectClause.getSqlSelections();
+        var size = sqlSelections.size();
+        var projectStageSpecifications = new ArrayList<AstProjectStageSpecification>(size);
+
+        for (var i = 0; i < size; i++) {
+            var sqlSelection = sqlSelections.get(i);
+            if (sqlSelection.isVirtual()) {
+                continue;
+            }
+            if (sqlSelection.getExpression() instanceof ColumnReference columnReference) {
+                AstExpression projectionExpression =
+                        new AstFieldPathExpression("$" + columnReference.getColumnExpression());
+                projectStageSpecifications.add(AstProjectStageSpecification.Set("f" + i, projectionExpression));
+            } else {
+                throw new NotYetImplementedException();
+            }
+        }
+        projectStageSpecifications.add(AstProjectStageSpecification.ExcludeId());
+        return projectStageSpecifications;
+    }
+
+    @Override
+    public void visitColumnReference(ColumnReference columnReference) {
+        astVisitorValueHolder.setValue(FIELD_NAME, columnReference.getColumnExpression());
+    }
+
+    @Override
+    public void visitParameter(JdbcParameter jdbcParameter) {
+        astVisitorValueHolder.setValue(FIELD_VALUE, AstPlaceholder.INSTANCE);
+        parameterBinders.add(jdbcParameter.getParameterBinder());
     }
 
     @Override
     public void visitSqlSelection(SqlSelection sqlSelection) {
-        throw new NotYetImplementedException();
-    }
-
-    @Override
-    public void visitFromClause(FromClause fromClause) {
         throw new NotYetImplementedException();
     }
 
@@ -283,11 +427,6 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
 
     @Override
     public void visitTableGroupJoin(TableGroupJoin tableGroupJoin) {
-        throw new NotYetImplementedException();
-    }
-
-    @Override
-    public void visitNamedTableReference(NamedTableReference namedTableReference) {
         throw new NotYetImplementedException();
     }
 
@@ -308,11 +447,6 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
 
     @Override
     public void visitTableReferenceJoin(TableReferenceJoin tableReferenceJoin) {
-        throw new NotYetImplementedException();
-    }
-
-    @Override
-    public void visitColumnReference(ColumnReference columnReference) {
         throw new NotYetImplementedException();
     }
 
@@ -427,11 +561,6 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
     }
 
     @Override
-    public void visitParameter(JdbcParameter jdbcParameter) {
-        throw new NotYetImplementedException();
-    }
-
-    @Override
     public void visitJdbcLiteral(JdbcLiteral<?> jdbcLiteral) {
         throw new NotYetImplementedException();
     }
@@ -528,11 +657,6 @@ final class MqlTranslator<T extends JdbcOperation & MutationOperation> implement
 
     @Override
     public void visitThruthnessPredicate(ThruthnessPredicate thruthnessPredicate) {
-        throw new NotYetImplementedException();
-    }
-
-    @Override
-    public void visitRelationalPredicate(ComparisonPredicate comparisonPredicate) {
         throw new NotYetImplementedException();
     }
 

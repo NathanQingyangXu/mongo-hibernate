@@ -16,11 +16,14 @@
 
 package com.mongodb.hibernate.translate;
 
-import com.mongodb.hibernate.internal.mongoast.AstNode;
 import com.mongodb.hibernate.internal.mongoast.AstValue;
+import com.mongodb.hibernate.internal.mongoast.command.AstCommand;
+import com.mongodb.hibernate.internal.mongoast.command.aggregate.stage.AstProjectStageSpecification;
+import com.mongodb.hibernate.internal.mongoast.filter.AstFilter;
 import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -35,8 +38,13 @@ import java.util.Map;
  */
 abstract class TypeReference<T> {
 
-    public static final TypeReference<AstNode> COLLECTION_MUTATION = new TypeReference<>() {};
+    public static final TypeReference<AstCommand> COMMAND = new TypeReference<>() {};
+    public static final TypeReference<String> FIELD_NAME = new TypeReference<>() {};
     public static final TypeReference<AstValue> FIELD_VALUE = new TypeReference<>() {};
+    public static final TypeReference<String> COLLECTION_NAME = new TypeReference<>() {};
+    public static final TypeReference<List<AstProjectStageSpecification>> PROJECT_STAGE_SPECIFICATION =
+            new TypeReference<>() {};
+    public static final TypeReference<AstFilter> FILTER = new TypeReference<>() {};
 
     private static final Map<TypeReference<?>, String> CONSTANT_TOSTRING_CONTENT_MAP;
 

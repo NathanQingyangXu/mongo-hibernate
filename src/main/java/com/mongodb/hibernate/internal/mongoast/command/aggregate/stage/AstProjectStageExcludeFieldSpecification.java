@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
-package com.mongodb.hibernate.translate;
+package com.mongodb.hibernate.internal.mongoast.command.aggregate.stage;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.bson.BsonWriter;
 
-import org.junit.jupiter.api.Test;
-
-class TypeReferenceTests {
-
-    @Test
-    void testToString() {
-        assertEquals("COLLECTION_NAME", TypeReference.COLLECTION_NAME.toString());
+/**
+ * Represents some {@link AstProjectStageSpecification} that excludes some field.
+ *
+ * @param path the path of the field to be excluded; never null
+ */
+public record AstProjectStageExcludeFieldSpecification(String path) implements AstProjectStageSpecification {
+    @Override
+    public void render(BsonWriter writer) {
+        writer.writeInt32(path, 0);
     }
 }

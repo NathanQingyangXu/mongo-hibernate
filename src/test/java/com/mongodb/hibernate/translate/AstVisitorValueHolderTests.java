@@ -16,7 +16,7 @@
 
 package com.mongodb.hibernate.translate;
 
-import static com.mongodb.hibernate.translate.TypeReference.COLLECTION_MUTATION;
+import static com.mongodb.hibernate.translate.TypeReference.COMMAND;
 import static com.mongodb.hibernate.translate.TypeReference.FIELD_VALUE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -64,11 +64,11 @@ class AstVisitorValueHolderTests {
             };
             var fieldValue = astVisitorValueHolder.getValue(FIELD_VALUE, fielValueSetter);
             AstElement astElement = new AstElement("province", fieldValue);
-            astVisitorValueHolder.setValue(COLLECTION_MUTATION, new AstInsertCommand("city", List.of(astElement)));
+            astVisitorValueHolder.setValue(COMMAND, new AstInsertCommand("city", List.of(astElement)));
         };
 
         // when && then
-        astVisitorValueHolder.getValue(COLLECTION_MUTATION, tableInserter);
+        astVisitorValueHolder.getValue(COMMAND, tableInserter);
     }
 
     @Nested
@@ -94,7 +94,7 @@ class AstVisitorValueHolderTests {
                     astVisitorValueHolder.setValue(FIELD_VALUE, new AstLiteralValue(new BsonString("some_value")));
 
             // when && then
-            assertThrows(Error.class, () -> astVisitorValueHolder.getValue(COLLECTION_MUTATION, valueSetter));
+            assertThrows(Error.class, () -> astVisitorValueHolder.getValue(COMMAND, valueSetter));
         }
     }
 
