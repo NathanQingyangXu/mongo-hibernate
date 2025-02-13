@@ -22,6 +22,7 @@ import static com.mongodb.hibernate.translate.TypeReference.FIELD_NAME;
 import static com.mongodb.hibernate.translate.TypeReference.FIELD_VALUE;
 import static com.mongodb.hibernate.translate.TypeReference.FILTER;
 import static com.mongodb.hibernate.translate.TypeReference.PROJECT_STAGE_SPECIFICATION;
+import static org.hibernate.sql.ast.SqlTreePrinter.logSqlAst;
 
 import com.mongodb.hibernate.internal.NotYetImplementedException;
 import com.mongodb.hibernate.internal.mongoast.AstElement;
@@ -209,6 +210,7 @@ final class MqlTranslator<T extends JdbcOperation> implements SqlAstTranslator<T
     }
 
     private JdbcOperationQuerySelect translateSelect(SelectStatement selectStatement) {
+        logSqlAst(selectStatement);
         var selectCommand = astVisitorValueHolder.getValue(COMMAND, () -> visitSelectStatement(selectStatement));
 
         return new JdbcOperationQuerySelect(
