@@ -84,7 +84,6 @@ class BasicInsertionTests {
                 {
                     _id: 1,
                     title: "War and Peace",
-                    author: null,
                     publishYear: 1867
                 }""");
         assertCollectionContainsOnly(expectedDocument);

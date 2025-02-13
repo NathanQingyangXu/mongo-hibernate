@@ -270,7 +270,13 @@ final class MongoPreparedStatement extends MongoStatement implements PreparedSta
     private static void parseParameters(BsonDocument command, List<Consumer<BsonValue>> parameterValueSetters) {
         for (var entry : command.entrySet()) {
             if (isParameterMarker(entry.getValue())) {
-                parameterValueSetters.add(entry::setValue);
+                parameterValueSetters.add(value -> {
+                    if (value.getBsonType() == BsonType.NULL) {
+                        command.remove(entry.getKey());
+                    } else {
+                        entry.setValue(value);
+                    }
+                });
             } else if (entry.getValue().getBsonType().isContainer()) {
                 parseParameters(entry.getValue(), parameterValueSetters);
             }
