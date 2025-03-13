@@ -89,7 +89,7 @@ class MongoStatement implements StatementAdapter {
     @VisibleForTesting(otherwise = PRIVATE)
     static List<String> getFieldNamesFromProjectStage(BsonDocument projectStage) {
         var fieldNames = projectStage.entrySet().stream()
-                .filter(field -> trueOrOne(field.getValue()))
+                .filter(field -> !isInclusionSuppressed(field.getValue()))
                 .map(Map.Entry::getKey)
                 .collect(toCollection(ArrayList::new));
         if (!projectStage.containsKey(ID_FIELD_NAME)) {
@@ -99,9 +99,9 @@ class MongoStatement implements StatementAdapter {
         return fieldNames;
     }
 
-    private static boolean trueOrOne(BsonValue value) {
-        return (value.isBoolean() && value.asBoolean().getValue())
-                || (value.isNumber() && value.asNumber().intValue() == 1);
+    private static boolean isInclusionSuppressed(BsonValue value) {
+        return (value.isNumber() && value.asNumber().intValue() == 0)
+                || (value.isBoolean() && !value.asBoolean().getValue());
     }
 
     @Override
