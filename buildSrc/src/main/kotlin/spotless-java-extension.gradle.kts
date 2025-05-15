@@ -25,8 +25,10 @@ plugins {
 spotless {
     java {
         importOrder()
-
         removeUnusedImports()
+        trimTrailingWhitespace()
+        leadingTabsToSpaces()
+        endWithNewline()
 
         palantirJavaFormat("2.58.0").formatJavadoc(true)
 
@@ -34,18 +36,24 @@ spotless {
 
         // need to add license header manually to package-info.java and module-info.java
         // due to the bug: https://github.com/diffplug/spotless/issues/532
-        licenseHeaderFile(file("spotless.license.java")) // contains '$YEAR' placeholder
+        licenseHeaderFile(rootProject.file("spotless.license.java")) // contains '$YEAR' placeholder
 
-        targetExclude("build/generated/sources/buildConfig/**/*.java")
+        targetExclude(rootProject.file("build/generated/sources/buildConfig/main/com/mongodb/hibernate/internal/BuildConfig.java"))
+
         addStep(
             FormatterStep.create(
-                "multilineFormatter",
-                MultilineFormatter(),
-                { formatter -> FormatterFunc { input -> formatter.format(input) } }))
+                "multilineWithParameterFormatter",
+                MultilineWithParameterFormatter(),
+                { formatter -> FormatterFunc { formatter.format(it) } }))
+        addStep(
+            FormatterStep.create(
+                "multilineIndentFormatter",
+                MultilineIndentFormatter(),
+                { formatter -> FormatterFunc { formatter.format(it) } }))
     }
 }
 
-class MultilineFormatter : Serializable {
+class MultilineIndentFormatter : Serializable {
     fun format(content: String): String {
         val tripleQuote = "\"\"\""
         val lines = content.lines()
@@ -71,10 +79,32 @@ class MultilineFormatter : Serializable {
             val minIndent =
                 multilineStringLines
                     .filter { it.isNotBlank() }
-                    .map { l -> l.indexOfFirst { ch -> !ch.isWhitespace() }.takeIf { it >= 0 } ?: line.length }
-                    .minOrNull() ?: 0
+                    .minOfOrNull { l -> l.indexOfFirst { ch -> !ch.isWhitespace() }.takeIf { it >= 0 } ?: line.length }
+                    ?: 0
             multilineStringLines.forEach { blockLine ->
                 result.append(" ".repeat(baseIndent)).append(blockLine.drop(minIndent)).append("\n")
+            }
+        }
+        return result.toString()
+    }
+}
+
+class MultilineWithParameterFormatter : Serializable {
+    fun format(content: String): String {
+        val lines = content.lines()
+        val result = StringBuilder()
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            if (line.trimEnd().endsWith("\"\"\"") && i + 1 < lines.size && lines[i + 1].trimStart().startsWith(".formatted(")) {
+                result.append(line.trimEnd() + lines[i + 1].trimStart())
+                i++
+            } else {
+                result.append(line)
+            }
+            i++
+            if (i < lines.size) {
+                result.append("\n")
             }
         }
         return result.toString()
