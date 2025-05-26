@@ -17,7 +17,10 @@
 package com.mongodb.hibernate.internal.translate;
 
 import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.COLLECTION_AGGREGATE;
+import static java.lang.Integer.MAX_VALUE;
+import static java.util.Collections.emptyMap;
 import static org.hibernate.sql.ast.SqlTreePrinter.logSqlAst;
+import static org.hibernate.sql.exec.spi.JdbcLockStrategy.NONE;
 
 import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.hibernate.query.spi.QueryOptions;
@@ -49,6 +52,10 @@ final class SelectMqlTranslator extends AbstractMqlTranslator<JdbcOperationQuery
         checkJdbcParameterBindingsSupportability(jdbcParameterBindings);
         checkQueryOptionsSupportability(queryOptions);
 
+        if (queryOptions.getLimit() != null) {
+            limit = queryOptions.getLimit().makeCopy();
+        }
+
         var aggregateCommand = acceptAndYield((Statement) selectStatement, COLLECTION_AGGREGATE);
         var jdbcValuesMappingProducer =
                 jdbcValuesMappingProducerProvider.buildMappingProducer(selectStatement, getSessionFactory());
@@ -57,6 +64,12 @@ final class SelectMqlTranslator extends AbstractMqlTranslator<JdbcOperationQuery
                 renderMongoAstNode(aggregateCommand),
                 getParameterBinders(),
                 jdbcValuesMappingProducer,
-                getAffectedTableNames());
+                getAffectedTableNames(),
+                0,
+                MAX_VALUE,
+                emptyMap(),
+                NONE,
+                offsetParameter,
+                limitParameter);
     }
 }
