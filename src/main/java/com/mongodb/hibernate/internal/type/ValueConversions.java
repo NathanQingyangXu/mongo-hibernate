@@ -80,8 +80,8 @@ public final class ValueConversions {
             return toBsonValue(v);
         } else if (value instanceof ObjectId v) {
             return toBsonValue(v);
-        } else if (value instanceof Object[] v) {
-            return arrayToBsonValue(v);
+        } else if (value.getClass().isArray()) {
+            return arrayToBsonValue(value);
         }
         throw new SQLFeatureNotSupportedException(format(
                 "Value [%s] of type [%s] is not supported",
@@ -157,7 +157,7 @@ public final class ValueConversions {
         } catch (SQLException e) {
             throw fail(e.toString());
         }
-        return arrayToBsonValue(contents);
+        return (BsonArray) toBsonValue(contents);
     }
 
     private static BsonArray arrayToBsonValue(Object value) throws SQLFeatureNotSupportedException {
