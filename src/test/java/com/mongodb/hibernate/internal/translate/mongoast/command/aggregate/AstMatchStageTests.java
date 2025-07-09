@@ -30,7 +30,7 @@ class AstMatchStageTests {
     @Test
     void testRendering() {
         var astFilter = new AstFieldOperationFilter(
-                "title", new AstComparisonFilterOperation(EQ, new AstLiteralValue(new BsonString("Jane Eyre"))));
+                "title", true, new AstComparisonFilterOperation(EQ, new AstLiteralValue(new BsonString("Jane Eyre"))));
         var astMatchStage = new AstMatchStage(astFilter);
 
         var expectedJson = """

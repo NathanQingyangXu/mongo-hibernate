@@ -28,8 +28,8 @@ class Book {
     int id;
 
     String title;
-    Boolean outOfStock;
     Integer publishYear;
+    Boolean outOfStock;
     Long isbn13;
     Double discount;
     BigDecimal price;
@@ -41,6 +41,20 @@ class Book {
         this.title = title;
         this.publishYear = publishYear;
         this.outOfStock = outOfStock;
+    }
+
+    public Book(
+            int id,
+            String title,
+            Integer publishYear,
+            Boolean outOfStock,
+            Long isbn13,
+            Double discount,
+            BigDecimal price) {
+        this(id, title, publishYear, outOfStock);
+        this.isbn13 = isbn13;
+        this.discount = discount;
+        this.price = price;
     }
 
     @Override

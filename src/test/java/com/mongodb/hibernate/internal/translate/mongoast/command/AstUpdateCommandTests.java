@@ -41,6 +41,7 @@ class AstUpdateCommandTests {
         final AstFilter filter;
         filter = new AstFieldOperationFilter(
                 "_id",
+                false,
                 new AstComparisonFilterOperation(
                         AstComparisonFilterOperator.EQ, new AstLiteralValue(new BsonInt64(12345L))));
 

@@ -29,7 +29,7 @@ class AstFieldOperationFilterTests {
     void testRendering() {
 
         var astFieldOperationFilter = new AstFieldOperationFilter(
-                "fieldName", new AstComparisonFilterOperation(EQ, new AstLiteralValue(new BsonInt32(1))));
+                "fieldName", true, new AstComparisonFilterOperation(EQ, new AstLiteralValue(new BsonInt32(1))));
 
         var expectedJson = """
                 {"fieldName": {"$eq": {"$numberInt": "1"}}}\

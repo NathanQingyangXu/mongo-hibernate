@@ -330,7 +330,7 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
 
         var astFilterFieldPath = keyBinding.getColumnReference().getColumnExpression();
         var fieldValue = acceptAndYield(keyBinding.getValueExpression(), VALUE);
-        return new AstFieldOperationFilter(astFilterFieldPath, new AstComparisonFilterOperation(EQ, fieldValue));
+        return new AstFieldOperationFilter(astFilterFieldPath, false, new AstComparisonFilterOperation(EQ, fieldValue));
     }
 
     @Override
@@ -384,7 +384,7 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
         var whereClauseRestrictions = querySpec.getWhereClauseRestrictions();
         if (whereClauseRestrictions != null && !whereClauseRestrictions.isEmpty()) {
             var filter = acceptAndYield(whereClauseRestrictions, FILTER);
-            return Optional.of(new AstMatchStage(filter));
+            return Optional.of(new AstMatchStage(filter.withTernaryNullnessLogicEnforced()));
         } else {
             return Optional.empty();
         }
@@ -509,7 +509,9 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
             assertTrue(isFieldPathExpression(rhs));
         }
 
-        var fieldPath = acceptAndYield((isFieldOnLeftHandSide ? lhs : rhs), FIELD_PATH);
+        var fieldExpression = isFieldOnLeftHandSide ? lhs : rhs;
+        var fieldPath = acceptAndYield(fieldExpression, FIELD_PATH);
+
         var comparisonValue = acceptAndYield((isFieldOnLeftHandSide ? rhs : lhs), VALUE);
 
         var operator = isFieldOnLeftHandSide
@@ -518,7 +520,7 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
         var astComparisonFilterOperator = getAstComparisonFilterOperator(operator);
 
         var astFilterOperation = new AstComparisonFilterOperation(astComparisonFilterOperator, comparisonValue);
-        var filter = new AstFieldOperationFilter(fieldPath, astFilterOperation);
+        var filter = new AstFieldOperationFilter(fieldPath, isFieldPathNullable(fieldExpression), astFilterOperation);
         astVisitorValueHolder.yield(FILTER, filter);
     }
 
@@ -566,9 +568,6 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
     @Override
     public void visitQueryLiteral(QueryLiteral<?> queryLiteral) {
         var literalValue = queryLiteral.getLiteralValue();
-        if (literalValue == null) {
-            throw new FeatureNotSupportedException("TODO-HIBERNATE-74 https://jira.mongodb.org/browse/HIBERNATE-74");
-        }
         astVisitorValueHolder.yield(VALUE, new AstLiteralValue(toLiteralBsonValue(literalValue)));
     }
 
@@ -594,13 +593,15 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
 
     @Override
     public void visitBooleanExpressionPredicate(BooleanExpressionPredicate booleanExpressionPredicate) {
-        if (!isFieldPathExpression(booleanExpressionPredicate.getExpression())) {
+        var fieldPathExpression = booleanExpressionPredicate.getExpression();
+        if (!isFieldPathExpression(fieldPathExpression)) {
             throw new FeatureNotSupportedException("Expression not of field path not supported");
         }
-        var fieldPath = acceptAndYield(booleanExpressionPredicate.getExpression(), FIELD_PATH);
+        var fieldPath = acceptAndYield(fieldPathExpression, FIELD_PATH);
         var astFilterOperation =
                 new AstComparisonFilterOperation(EQ, booleanExpressionPredicate.isNegated() ? FALSE : TRUE);
-        var filter = new AstFieldOperationFilter(fieldPath, astFilterOperation);
+        var filter =
+                new AstFieldOperationFilter(fieldPath, isFieldPathNullable(fieldPathExpression), astFilterOperation);
         astVisitorValueHolder.yield(FILTER, filter);
     }
 
@@ -1020,8 +1021,7 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
                 || (isFieldPathExpression(rhs) && isValueExpression(lhs));
     }
 
-    private static BsonValue toLiteralBsonValue(Object value) {
-        // TODO-HIBERNATE-74 decide if `value` is nullable
+    private static BsonValue toLiteralBsonValue(@Nullable Object value) {
         try {
             return ValueConversions.toBsonValue(value);
         } catch (SQLFeatureNotSupportedException e) {
@@ -1075,5 +1075,13 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
                             startPosition,
                             executionContext.getSession());
         }
+    }
+
+    private static boolean isFieldPathNullable(Expression expression) {
+        return expression instanceof BasicValuedPathInterpretation<?> basicValuedPathInterpretation
+                && assertNotNull(basicValuedPathInterpretation
+                                .getExpressionType()
+                                .asBasicValuedModelPart())
+                        .isNullable();
     }
 }

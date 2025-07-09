@@ -16,14 +16,14 @@
 
 package com.mongodb.hibernate.query.select;
 
-import static java.util.Collections.singletonList;
+import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.mongodb.hibernate.internal.FeatureNotSupportedException;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import org.hibernate.query.SemanticException;
@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-@DomainModel(annotatedClasses = {SimpleSelectQueryIntegrationTests.Contact.class, Book.class})
+@DomainModel(annotatedClasses = SimpleSelectQueryIntegrationTests.Contact.class)
 class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegrationTests {
 
     @Nested
@@ -50,7 +50,9 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                 new Contact(2, "Mary", 35, Country.CANADA),
                 new Contact(3, "Dylan", 7, Country.CANADA),
                 new Contact(4, "Lucy", 78, Country.CANADA),
-                new Contact(5, "John", 25, Country.USA));
+                new Contact(5, "John", 25, Country.USA),
+                new Contact(6, "Alice", 40, Country.USA),
+                new Contact(7, "Eve", null, null));
 
         private static List<Contact> getTestingContacts(int... ids) {
             return Arrays.stream(ids)
@@ -63,7 +65,7 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
 
         @ParameterizedTest
         @ValueSource(booleans = {true, false})
-        void testComparisonByEq(boolean fieldAsLhs) {
+        void testComparisonByEqToNonNull(boolean fieldAsLhs) {
             assertSelectionQuery(
                     "from Contact where " + (fieldAsLhs ? "country = :country" : ":country = country"),
                     Contact.class,
@@ -74,27 +76,78 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                       "pipeline": [
                         {
                           "$match": {
-                            "country": {
-                              "$eq": "USA"
-                            }
-                          }
+                             "$and": [
+                               {
+                                 "country": {
+                                   "$eq": "USA"
+                                 }
+                               },
+                               {
+                                 "country": {
+                                   "$ne": null
+                                 }
+                               }
+                             ]
+                           }
                         },
                         {
                           "$project": {
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
                       ]
                     }""",
-                    getTestingContacts(1, 5));
+                    getTestingContacts(1, 5, 6));
         }
 
         @ParameterizedTest
         @ValueSource(booleans = {true, false})
-        void testComparisonByNe(boolean fieldAsLhs) {
+        void testComparisonByEqToNull(boolean fieldAsLhs) {
+            assertSelectionQuery(
+                    "from Contact where " + (fieldAsLhs ? "country = :country" : ":country = country"),
+                    Contact.class,
+                    q -> q.setParameter("country", null),
+                    """
+                    {
+                      "aggregate": "contacts",
+                      "pipeline": [
+                        {
+                          "$match": {
+                             "$and": [
+                               {
+                                 "country": {
+                                   "$eq": null
+                                 }
+                               },
+                               {
+                                 "country": {
+                                   "$ne": null
+                                 }
+                               }
+                             ]
+                           }
+                        },
+                        {
+                          "$project": {
+                            "_id": true,
+                            "age": true,
+                            "country": true,
+                            "deleted": true,
+                            "name": true
+                          }
+                        }
+                      ]
+                    }""",
+                    emptyList());
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void testComparisonByNeToNonNull(boolean fieldAsLhs) {
             assertSelectionQuery(
                     "from Contact where " + (fieldAsLhs ? "country != ?1" : "?1 != country"),
                     Contact.class,
@@ -105,9 +158,18 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                       "pipeline": [
                         {
                           "$match": {
-                            "country": {
-                              "$ne": "USA"
-                            }
+                            "$and": [
+                              {
+                                "country": {
+                                  "$ne": "USA"
+                                }
+                              },
+                              {
+                                "country": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
                           }
                         },
                         {
@@ -115,6 +177,7 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
@@ -125,7 +188,48 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
 
         @ParameterizedTest
         @ValueSource(booleans = {true, false})
-        void testComparisonByLt(boolean fieldAsLhs) {
+        void testComparisonByNeToNull(boolean fieldAsLhs) {
+            assertSelectionQuery(
+                    "from Contact where " + (fieldAsLhs ? "country != ?1" : "?1 != country"),
+                    Contact.class,
+                    q -> q.setParameter(1, null),
+                    """
+                    {
+                      "aggregate": "contacts",
+                      "pipeline": [
+                        {
+                          "$match": {
+                            "$and": [
+                              {
+                                "country": {
+                                  "$ne": null
+                                }
+                              },
+                              {
+                                "country": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "$project": {
+                            "_id": true,
+                            "age": true,
+                            "country": true,
+                            "deleted": true,
+                            "name": true
+                          }
+                        }
+                      ]
+                    }""",
+                    getTestingContacts(1, 2, 3, 4, 5, 6));
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void testComparisonByLtNonNull(boolean fieldAsLhs) {
             assertSelectionQuery(
                     "from Contact where " + (fieldAsLhs ? "age < :age" : ":age > age"),
                     Contact.class,
@@ -136,9 +240,18 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                       "pipeline": [
                         {
                           "$match": {
-                            "age": {
-                              "$lt": 35
-                            }
+                            "$and": [
+                              {
+                                "age": {
+                                  "$lt": 35
+                                }
+                              },
+                              {
+                                "age": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
                           }
                         },
                         {
@@ -146,6 +259,7 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
@@ -156,7 +270,48 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
 
         @ParameterizedTest
         @ValueSource(booleans = {true, false})
-        void testComparisonByLte(boolean fieldAsLhs) {
+        void testComparisonByLtNull(boolean fieldAsLhs) {
+            assertSelectionQuery(
+                    "from Contact where " + (fieldAsLhs ? "age < :age" : ":age > age"),
+                    Contact.class,
+                    q -> q.setParameter("age", null),
+                    """
+                    {
+                      "aggregate": "contacts",
+                      "pipeline": [
+                        {
+                          "$match": {
+                            "$and": [
+                              {
+                                "age": {
+                                  "$lt": null
+                                }
+                              },
+                              {
+                                "age": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "$project": {
+                            "_id": true,
+                            "age": true,
+                            "country": true,
+                            "deleted": true,
+                            "name": true
+                          }
+                        }
+                      ]
+                    }""",
+                    emptyList());
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void testComparisonByLteNonNull(boolean fieldAsLhs) {
             assertSelectionQuery(
                     "from Contact where " + (fieldAsLhs ? "age <= ?1" : "?1 >= age"),
                     Contact.class,
@@ -167,9 +322,18 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                       "pipeline": [
                         {
                           "$match": {
-                            "age": {
-                              "$lte": 35
-                            }
+                            "$and": [
+                              {
+                                "age": {
+                                  "$lte": 35
+                                }
+                              },
+                              {
+                                "age": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
                           }
                         },
                         {
@@ -177,6 +341,7 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
@@ -187,7 +352,48 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
 
         @ParameterizedTest
         @ValueSource(booleans = {true, false})
-        void testComparisonByGt(boolean fieldAsLhs) {
+        void testComparisonByLteNull(boolean fieldAsLhs) {
+            assertSelectionQuery(
+                    "from Contact where " + (fieldAsLhs ? "age <= ?1" : "?1 >= age"),
+                    Contact.class,
+                    q -> q.setParameter(1, null),
+                    """
+                    {
+                      "aggregate": "contacts",
+                      "pipeline": [
+                        {
+                          "$match": {
+                            "$and": [
+                              {
+                                "age": {
+                                  "$lte": null
+                                }
+                              },
+                              {
+                                "age": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "$project": {
+                            "_id": true,
+                            "age": true,
+                            "country": true,
+                            "deleted": true,
+                            "name": true
+                          }
+                        }
+                      ]
+                    }""",
+                    emptyList());
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void testComparisonByGtNonNull(boolean fieldAsLhs) {
             assertSelectionQuery(
                     "from Contact where " + (fieldAsLhs ? "age > :age" : ":age < age"),
                     Contact.class,
@@ -198,9 +404,18 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                       "pipeline": [
                         {
                           "$match": {
-                            "age": {
-                              "$gt": 18
-                            }
+                            "$and": [
+                              {
+                                "age": {
+                                  "$gt": 18
+                                }
+                              },
+                              {
+                                "age": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
                           }
                         },
                         {
@@ -208,17 +423,59 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
                       ]
                     }""",
-                    getTestingContacts(2, 4, 5));
+                    getTestingContacts(2, 4, 5, 6));
         }
 
         @ParameterizedTest
         @ValueSource(booleans = {true, false})
-        void testComparisonByGte(boolean fieldAsLhs) {
+        void testComparisonByGtNull(boolean fieldAsLhs) {
+            assertSelectionQuery(
+                    "from Contact where " + (fieldAsLhs ? "age > :age" : ":age < age"),
+                    Contact.class,
+                    q -> q.setParameter("age", null),
+                    """
+                    {
+                      "aggregate": "contacts",
+                      "pipeline": [
+                        {
+                          "$match": {
+                            "$and": [
+                              {
+                                "age": {
+                                  "$gt": null
+                                }
+                              },
+                              {
+                                "age": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "$project": {
+                            "_id": true,
+                            "age": true,
+                            "country": true,
+                            "deleted": true,
+                            "name": true
+                          }
+                        }
+                      ]
+                    }""",
+                    emptyList());
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void testComparisonByGteNonNull(boolean fieldAsLhs) {
             assertSelectionQuery(
                     "from Contact where " + (fieldAsLhs ? "age >= :age" : ":age <= age"),
                     Contact.class,
@@ -229,9 +486,18 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                       "pipeline": [
                         {
                           "$match": {
-                            "age": {
-                              "$gte": 18
-                            }
+                            "$and": [
+                              {
+                                "age": {
+                                  "$gte": 18
+                                }
+                              },
+                              {
+                                "age": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
                           }
                         },
                         {
@@ -239,12 +505,54 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
                       ]
                     }""",
-                    getTestingContacts(1, 2, 4, 5));
+                    getTestingContacts(1, 2, 4, 5, 6));
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        void testComparisonByGteNull(boolean fieldAsLhs) {
+            assertSelectionQuery(
+                    "from Contact where " + (fieldAsLhs ? "age >= :age" : ":age <= age"),
+                    Contact.class,
+                    q -> q.setParameter("age", null),
+                    """
+                    {
+                      "aggregate": "contacts",
+                      "pipeline": [
+                        {
+                          "$match": {
+                            "$and": [
+                              {
+                                "age": {
+                                  "$gte": null
+                                }
+                              },
+                              {
+                                "age": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "$project": {
+                            "_id": true,
+                            "age": true,
+                            "country": true,
+                            "deleted": true,
+                            "name": true
+                          }
+                        }
+                      ]
+                    }""",
+                    emptyList());
         }
 
         @Test
@@ -261,13 +569,27 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                           "$match": {
                             "$and": [
                               {
+                                "$and": [
+                                  {
+                                    "country": {
+                                      "$eq": "CANADA"
+                                    }
+                                  },
+                                  {
+                                    "age": {
+                                      "$gt": 18
+                                    }
+                                  }
+                                ]
+                              },
+                              {
                                 "country": {
-                                  "$eq": "CANADA"
+                                  "$ne": null
                                 }
                               },
                               {
                                 "age": {
-                                  "$gt": 18
+                                  "$ne": null
                                 }
                               }
                             ]
@@ -278,6 +600,7 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
@@ -300,14 +623,32 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                           "$match": {
                             "$or": [
                               {
-                                "country": {
-                                  "$eq": "CANADA"
-                                }
+                                "$and": [
+                                  {
+                                    "country": {
+                                      "$eq": "CANADA"
+                                    }
+                                  },
+                                  {
+                                    "country": {
+                                      "$ne": null
+                                    }
+                                  }
+                                ],
                               },
                               {
-                                "age": {
-                                  "$gt": 18
-                                }
+                                "$and": [
+                                  {
+                                    "age": {
+                                      "$gt": 18
+                                    }
+                                  },
+                                  {
+                                    "age": {
+                                      "$ne": null
+                                    }
+                                  }
+                                ]
                               }
                             ]
                           }
@@ -317,12 +658,13 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
                       ]
                     }""",
-                    getTestingContacts(2, 3, 4, 5));
+                    getTestingContacts(2, 3, 4, 5, 6));
         }
 
         @Test
@@ -338,18 +680,32 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                           "$match": {
                             "$and": [
                               {
+                                "$and": [
+                                  {
+                                    "age": {
+                                      "$gt": 18
+                                    }
+                                  },
+                                  {
+                                    "$nor": [
+                                      {
+                                        "country": {
+                                          "$eq": "USA"
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
                                 "age": {
-                                  "$gt": 18
+                                  "$ne": null
                                 }
                               },
                               {
-                                "$nor": [
-                                  {
-                                    "country": {
-                                      "$eq": "USA"
-                                    }
-                                  }
-                                ]
+                                "country": {
+                                  "$ne": null
+                                }
                               }
                             ]
                           }
@@ -359,6 +715,7 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
@@ -378,22 +735,34 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                       "pipeline": [
                         {
                           "$match": {
-                            "$nor": [
+                            "$and": [
                               {
-                                "$and": [
+                                "$nor": [
                                   {
-                                    "country": {
-                                      "$eq": "USA"
-                                    }
-                                  },
-                                  {
-                                    "age": {
-                                      "$gt": {
-                                        "$numberInt": "18"
+                                    "$and": [
+                                      {
+                                        "country": {
+                                          "$eq": "USA"
+                                        }
+                                      },
+                                      {
+                                        "age": {
+                                          "$gt": 18
+                                        }
                                       }
-                                    }
+                                    ]
                                   }
                                 ]
+                              },
+                              {
+                                "country": {
+                                  "$ne": null
+                                }
+                              },
+                              {
+                                "age": {
+                                  "$ne": null
+                                }
                               }
                             ]
                           }
@@ -403,6 +772,7 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
@@ -417,27 +787,39 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                     "from Contact where not (country = 'USA' or age > 18)",
                     Contact.class,
                     """
-                    {
+                     {
                       "aggregate": "contacts",
                       "pipeline": [
                         {
                           "$match": {
-                            "$nor": [
+                            "$and": [
                               {
-                                "$or": [
+                                "$nor": [
                                   {
-                                    "country": {
-                                      "$eq": "USA"
-                                    }
-                                  },
-                                  {
-                                    "age": {
-                                      "$gt": {
-                                        "$numberInt": "18"
+                                    "$or": [
+                                      {
+                                        "country": {
+                                          "$eq": "USA"
+                                        }
+                                      },
+                                      {
+                                        "age": {
+                                          "$gt": 18
+                                        }
                                       }
-                                    }
+                                    ]
                                   }
                                 ]
+                              },
+                              {
+                                "country": {
+                                  "$ne": null
+                                }
+                              },
+                              {
+                                "age": {
+                                  "$ne": null
+                                }
                               }
                             ]
                           }
@@ -447,6 +829,7 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
@@ -466,33 +849,43 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                       "pipeline": [
                         {
                           "$match": {
-                            "$nor": [
+                            "$and": [
                               {
-                                "$or": [
+                                "$nor": [
                                   {
-                                    "$and": [
+                                    "$or": [
                                       {
-                                        "country": {
-                                          "$eq": "USA"
-                                        }
+                                        "$and": [
+                                          {
+                                            "country": {
+                                              "$eq": "USA"
+                                            }
+                                          },
+                                          {
+                                            "age": {
+                                              "$gt": 18
+                                            }
+                                          }
+                                        ]
                                       },
                                       {
                                         "age": {
-                                          "$gt": {
-                                            "$numberInt": "18"
-                                          }
+                                          "$lt": 25
                                         }
                                       }
                                     ]
-                                  },
-                                  {
-                                    "age": {
-                                      "$lt": {
-                                        "$numberInt": "25"
-                                      }
-                                    }
                                   }
                                 ]
+                              },
+                              {
+                                "country": {
+                                  "$ne": null
+                                }
+                              },
+                              {
+                                "age": {
+                                  "$ne": null
+                                }
                               }
                             ]
                           }
@@ -502,6 +895,7 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                             "_id": true,
                             "age": true,
                             "country": true,
+                            "deleted": true,
                             "name": true
                           }
                         }
@@ -517,43 +911,60 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                     Contact.class,
                     """
                     {
-                      "aggregate": "contacts",
-                      "pipeline": [
-                        {
-                          "$match": {
-                            "$and": [
-                              {
-                                "age": {
-                                  "$gt": 18
-                                }
-                              },
-                              {
-                                "$nor": [
-                                  {
-                                    "$nor": [
-                                      {
-                                        "country": {
-                                          "$eq": "USA"
-                                        }
-                                      }
-                                    ]
-                                  }
-                                ]
-                              }
-                            ]
-                          }
-                        },
-                        {
-                          "$project": {
-                            "_id": true,
-                            "age": true,
-                            "country": true,
-                            "name": true
-                          }
-                        }
-                      ]
-                    }""",
-                    getTestingContacts(5));
+                       "aggregate": "contacts",
+                       "pipeline": [
+                         {
+                           "$match": {
+                             "$and": [
+                               {
+                                 "$and": [
+                                   {
+                                     "age": {
+                                       "$gt": {
+                                         "$numberInt": "18"
+                                       }
+                                     }
+                                   },
+                                   {
+                                     "$nor": [
+                                       {
+                                         "$nor": [
+                                           {
+                                             "country": {
+                                               "$eq": "USA"
+                                             }
+                                           }
+                                         ]
+                                       }
+                                     ]
+                                   }
+                                 ]
+                               },
+                               {
+                                 "age": {
+                                   "$ne": null
+                                 }
+                               },
+                               {
+                                 "country": {
+                                   "$ne": null
+                                 }
+                               }
+                             ]
+                           }
+                         },
+                         {
+                           "$project": {
+                             "_id": true,
+                             "age": true,
+                             "country": true,
+                             "deleted": true,
+                             "name": true
+                           }
+                         }
+                       ]
+                     }""",
+                    getTestingContacts(5, 6));
         }
 
         @Test
@@ -568,9 +979,18 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                       "pipeline": [
                         {
                           "$match": {
-                            "country": {
-                              "$eq": "CANADA"
-                            }
+                            "$and": [
+                              {
+                                "country": {
+                                  "$eq": "CANADA"
+                                }
+                              },
+                              {
+                                "country": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
                           }
                         },
                         {
@@ -596,9 +1016,18 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                       "pipeline": [
                         {
                           "$match": {
-                            "country": {
-                              "$eq": "CANADA"
-                            }
+                            "$and": [
+                              {
+                                "country": {
+                                  "$eq": "CANADA"
+                                }
+                              },
+                              {
+                                "country": {
+                                  "$ne": null
+                                }
+                              }
+                            ]
                           }
                         },
                         {
@@ -620,6 +1049,45 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                     SemanticException.class,
                     "Could not interpret path expression '%s'",
                     "k.name");
+        }
+
+        @Test
+        void testSqlNullWrapperUnneededForFieldNotNullable() {
+            assertSelectionQuery(
+                    "from Contact where name = 'Dylan' and not deleted",
+                    Contact.class,
+                    """
+                    {
+                      "aggregate": "contacts",
+                      "pipeline": [
+                        {
+                          "$match": {
+                            "$and": [
+                              {
+                                "name": {
+                                  "$eq": "Dylan"
+                                }
+                              },
+                              {
+                                "deleted": {
+                                  "$eq": false
+                                }
+                              },
+                            ]
+                          }
+                        },
+                        {
+                          "$project": {
+                            "_id": true,
+                            "age": true,
+                            "country": true,
+                            "deleted": true,
+                            "name": true
+                          }
+                        }
+                      ]
+                    }""",
+                    getTestingContacts(3));
         }
     }
 
@@ -673,16 +1141,6 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
         }
 
         @Test
-        void testNullParameterNotSupported() {
-            assertSelectQueryFailure(
-                    "from Contact where country = :country",
-                    Contact.class,
-                    q -> q.setParameter("country", null),
-                    FeatureNotSupportedException.class,
-                    "TODO-HIBERNATE-74 https://jira.mongodb.org/browse/HIBERNATE-74");
-        }
-
-        @Test
         void testQueryPlanCacheIsSupported() {
             getSessionFactoryScope().inTransaction(session -> assertThatCode(
                             () -> session.createSelectionQuery("from Contact", Contact.class)
@@ -692,237 +1150,33 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
         }
     }
 
-    @Nested
-    class QueryLiteralTests {
-
-        private Book testingBook;
-
-        @BeforeEach
-        void beforeEach() {
-            testingBook = new Book();
-            testingBook.title = "Holy Bible";
-            testingBook.outOfStock = true;
-            testingBook.publishYear = 1995;
-            testingBook.isbn13 = 9780310904168L;
-            testingBook.discount = 0.25;
-            testingBook.price = new BigDecimal("123.50");
-            getSessionFactoryScope().inTransaction(session -> session.persist(testingBook));
-
-            getTestCommandListener().clear();
-        }
-
-        @Test
-        void testBoolean() {
-            assertSelectionQuery(
-                    "from Book where outOfStock = true",
-                    Book.class,
-                    """
-                    {
-                      "aggregate": "books",
-                      "pipeline": [
-                        {
-                          "$match": {
-                            "outOfStock": {
-                              "$eq": true
-                            }
-                          }
-                        },
-                        {
-                          "$project": {
-                            "_id": true,
-                            "discount": true,
-                            "isbn13": true,
-                            "outOfStock": true,
-                            "price": true,
-                            "publishYear": true,
-                            "title": true
-                          }
-                        }
-                      ]
-                    }""",
-                    singletonList(testingBook));
-        }
-
-        @Test
-        void testInteger() {
-            assertSelectionQuery(
-                    "from Book where publishYear = 1995",
-                    Book.class,
-                    """
-                    {
-                      "aggregate": "books",
-                      "pipeline": [
-                        {
-                          "$match": {
-                            "publishYear": {
-                              "$eq": 1995
-                            }
-                          }
-                        },
-                        {
-                          "$project": {
-                            "_id": true,
-                            "discount": true,
-                            "isbn13": true,
-                            "outOfStock": true,
-                            "price": true,
-                            "publishYear": true,
-                            "title": true
-                          }
-                        }
-                      ]
-                    }""",
-                    singletonList(testingBook));
-        }
-
-        @Test
-        void testLong() {
-            assertSelectionQuery(
-                    "from Book where isbn13 = 9780310904168L",
-                    Book.class,
-                    """
-                    {
-                      "aggregate": "books",
-                      "pipeline": [
-                        {
-                          "$match": {
-                            "isbn13": {
-                              "$eq": 9780310904168
-                            }
-                          }
-                        },
-                        {
-                          "$project": {
-                            "_id": true,
-                            "discount": true,
-                            "isbn13": true,
-                            "outOfStock": true,
-                            "price": true,
-                            "publishYear": true,
-                            "title": true
-                          }
-                        }
-                      ]
-                    }""",
-                    singletonList(testingBook));
-        }
-
-        @Test
-        void testDouble() {
-            assertSelectionQuery(
-                    "from Book where discount = 0.25D",
-                    Book.class,
-                    """
-                    {
-                      "aggregate": "books",
-                      "pipeline": [
-                        {
-                          "$match": {
-                            "discount": {
-                              "$eq": 0.25
-                            }
-                          }
-                        },
-                        {
-                          "$project": {
-                            "_id": true,
-                            "discount": true,
-                            "isbn13": true,
-                            "outOfStock": true,
-                            "price": true,
-                            "publishYear": true,
-                            "title": true
-                          }
-                        }
-                      ]
-                    }""",
-                    singletonList(testingBook));
-        }
-
-        @Test
-        void testString() {
-            assertSelectionQuery(
-                    "from Book where title = 'Holy Bible'",
-                    Book.class,
-                    """
-                    {
-                      "aggregate": "books",
-                      "pipeline": [
-                        {
-                          "$match": {
-                            "title": {
-                              "$eq": "Holy Bible"
-                            }
-                          }
-                        },
-                        {
-                          "$project": {
-                            "_id": true,
-                            "discount": true,
-                            "isbn13": true,
-                            "outOfStock": true,
-                            "price": true,
-                            "publishYear": true,
-                            "title": true
-                          }
-                        }
-                      ]
-                    }""",
-                    singletonList(testingBook));
-        }
-
-        @Test
-        void testBigDecimal() {
-            assertSelectionQuery(
-                    "from Book where price = 123.50BD",
-                    Book.class,
-                    """
-                    {
-                      "aggregate": "books",
-                      "pipeline": [
-                        {
-                          "$match": {
-                            "price": {
-                              "$eq": {
-                                "$numberDecimal": "123.50"
-                              }
-                            }
-                          }
-                        },
-                        {
-                          "$project": {
-                            "_id": true,
-                            "discount": true,
-                            "isbn13": true,
-                            "outOfStock": true,
-                            "price": true,
-                            "publishYear": true,
-                            "title": true
-                          }
-                        }
-                      ]
-                    }""",
-                    singletonList(testingBook));
-        }
-    }
-
     @Entity(name = "Contact")
     @Table(name = "contacts")
     static class Contact {
         @Id
         int id;
 
+        @Column(nullable = false)
         String name;
-        int age;
+
+        boolean deleted;
+
+        Integer age;
+
         String country;
 
         Contact() {}
 
-        Contact(int id, String name, int age, Country country) {
+        Contact(int id, String name, Integer age, Country country) {
             this.id = id;
             this.name = name;
             this.age = age;
-            this.country = country.name();
+            this.country = country == null ? null : country.name();
+        }
+
+        @Override
+        public String toString() {
+            return "Contact{" + "id=" + id + '}';
         }
     }
 

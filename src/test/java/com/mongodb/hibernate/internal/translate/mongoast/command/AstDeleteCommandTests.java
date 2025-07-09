@@ -32,7 +32,9 @@ class AstDeleteCommandTests {
 
         var collection = "books";
         var filter = new AstFieldOperationFilter(
-                "isbn", new AstComparisonFilterOperation(EQ, new AstLiteralValue(new BsonString("978-3-16-148410-0"))));
+                "isbn",
+                true,
+                new AstComparisonFilterOperation(EQ, new AstLiteralValue(new BsonString("978-3-16-148410-0"))));
 
         var deleteCommand = new AstDeleteCommand(collection, filter);
 

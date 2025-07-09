@@ -34,9 +34,12 @@ class AstLogicalFilterTests {
                 operator,
                 List.of(
                         new AstFieldOperationFilter(
-                                "field1", new AstComparisonFilterOperation(EQ, new AstLiteralValue(new BsonInt32(1)))),
+                                "field1",
+                                true,
+                                new AstComparisonFilterOperation(EQ, new AstLiteralValue(new BsonInt32(1)))),
                         new AstFieldOperationFilter(
                                 "field2",
+                                true,
                                 new AstComparisonFilterOperation(EQ, new AstLiteralValue(new BsonString("1"))))));
 
         var expectedJson =

@@ -16,9 +16,33 @@
 
 package com.mongodb.hibernate.internal.translate.mongoast.filter;
 
+import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstLogicalFilterOperator.AND;
+
+import java.util.List;
 import org.bson.BsonWriter;
 
-public record AstFieldOperationFilter(String fieldPath, AstFilterOperation filterOperation) implements AstFilter {
+/**
+ * Represents a filter that applies an operation on a field, such as equality or comparison.
+ *
+ * <p>{@code isTernaryNullnessLogicApplicable} determines whether the filter requires null safety handling to observe
+ * HQL/SQL's ternary NULL logic. Some examples of {@code AstFieldOperationFilter} exempted from null safety handling
+ * include
+ *
+ * <ol>
+ *   <li>fields annotated with {@code @Id} JPA annotation
+ *   <li>fields of primitive Java types
+ *   <li>fields with {@code @Column(nullable=false)} JPA annotation
+ *   <li>filters corresponding to {@code is null} or {@code is not null} HQL nullness predicate translation
+ *   <li>filters created by translation of MQL's <b>find</b> expressions which have inherent nullness robustness already
+ *       (e.g. due to <a
+ *       href="https://www.mongodb.com/docs/manual/reference/method/db.collection.find/#std-label-type-bracketing">Type
+ *       Bracketing</a>).
+ * </ol>
+ */
+public record AstFieldOperationFilter(
+        String fieldPath, boolean isTernaryNullnessLogicApplicable, AstFilterOperation filterOperation)
+        implements AstFilter {
+
     @Override
     public void render(BsonWriter writer) {
         writer.writeStartDocument();
@@ -27,5 +51,13 @@ public record AstFieldOperationFilter(String fieldPath, AstFilterOperation filte
             filterOperation.render(writer);
         }
         writer.writeEndDocument();
+    }
+
+    @Override
+    public AstFilter withTernaryNullnessLogicEnforced() {
+        if (!isTernaryNullnessLogicApplicable) {
+            return this;
+        }
+        return new AstLogicalFilter(AND, List.<AstFilter>of(this, getNullFieldExclusionFilter(fieldPath)));
     }
 }

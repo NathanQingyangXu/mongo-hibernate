@@ -16,6 +16,17 @@
 
 package com.mongodb.hibernate.internal.translate.mongoast.filter;
 
+import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.NE;
+
+import com.mongodb.hibernate.internal.translate.mongoast.AstLiteralValue;
 import com.mongodb.hibernate.internal.translate.mongoast.AstNode;
 
-public interface AstFilter extends AstNode {}
+public interface AstFilter extends AstNode {
+
+    AstFilter withTernaryNullnessLogicEnforced();
+
+    default AstFieldOperationFilter getNullFieldExclusionFilter(String fieldPath) {
+        return new AstFieldOperationFilter(
+                fieldPath, false, new AstComparisonFilterOperation(NE, AstLiteralValue.NULL));
+    }
+}

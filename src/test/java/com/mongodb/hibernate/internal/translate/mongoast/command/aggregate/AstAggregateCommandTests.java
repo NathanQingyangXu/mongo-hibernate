@@ -32,6 +32,7 @@ class AstAggregateCommandTests {
     void testRendering() {
         var matchStage = new AstMatchStage(new AstFieldOperationFilter(
                 "_id",
+                false,
                 new AstComparisonFilterOperation(
                         AstComparisonFilterOperator.EQ, new AstLiteralValue(new BsonInt32(1)))));
         var projectStage = new AstProjectStage(List.of(new AstProjectStageIncludeSpecification("title")));
