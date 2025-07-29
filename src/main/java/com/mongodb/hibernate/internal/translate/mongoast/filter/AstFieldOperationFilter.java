@@ -16,9 +16,6 @@
 
 package com.mongodb.hibernate.internal.translate.mongoast.filter;
 
-import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstLogicalFilterOperator.AND;
-
-import java.util.List;
 import org.bson.BsonWriter;
 
 /**
@@ -39,9 +36,7 @@ import org.bson.BsonWriter;
  *       Bracketing</a>).
  * </ol>
  */
-public record AstFieldOperationFilter(
-        String fieldPath, boolean isTernaryNullnessLogicApplicable, AstFilterOperation filterOperation)
-        implements AstFilter {
+public record AstFieldOperationFilter(String fieldPath, AstFilterOperation filterOperation) implements AstFilter {
 
     @Override
     public void render(BsonWriter writer) {
@@ -51,13 +46,5 @@ public record AstFieldOperationFilter(
             filterOperation.render(writer);
         }
         writer.writeEndDocument();
-    }
-
-    @Override
-    public AstFilter withTernaryNullnessLogicEnforced() {
-        if (!isTernaryNullnessLogicApplicable) {
-            return this;
-        }
-        return new AstLogicalFilter(AND, List.<AstFilter>of(this, getNullFieldExclusionFilter(fieldPath)));
     }
 }

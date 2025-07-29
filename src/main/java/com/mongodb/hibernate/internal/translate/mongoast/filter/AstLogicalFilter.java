@@ -16,14 +16,11 @@
 
 package com.mongodb.hibernate.internal.translate.mongoast.filter;
 
-import static com.mongodb.hibernate.internal.MongoAssertions.assertFalse;
-import static com.mongodb.hibernate.internal.MongoAssertions.fail;
-import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstLogicalFilterOperator.AND;
-
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
 import org.bson.BsonWriter;
+
+import java.util.List;
+
+import static com.mongodb.hibernate.internal.MongoAssertions.assertFalse;
 
 public record AstLogicalFilter(AstLogicalFilterOperator operator, List<? extends AstFilter> filters)
         implements AstFilter {
@@ -44,46 +41,5 @@ public record AstLogicalFilter(AstLogicalFilterOperator operator, List<? extends
             writer.writeEndArray();
         }
         writer.writeEndDocument();
-    }
-
-    @Override
-    public AstFilter withTernaryNullnessLogicEnforced() {
-        return switch (operator) {
-            case AND, NOR -> {
-                var collectedFieldPathsApplicable = new ArrayList<String>();
-                collectTernaryNullnessLogicApplicableFieldPathsRecursively(this, collectedFieldPathsApplicable);
-                if (collectedFieldPathsApplicable.isEmpty()) {
-                    yield this;
-                }
-                var dedupedFieldPaths = new LinkedHashSet<>(collectedFieldPathsApplicable)
-                        .stream().toList();
-                var newFilters = new ArrayList<AstFilter>(1 + dedupedFieldPaths.size());
-                newFilters.add(this);
-                dedupedFieldPaths.forEach(fieldPath -> newFilters.add(getNullFieldExclusionFilter(fieldPath)));
-                yield new AstLogicalFilter(AND, newFilters);
-            }
-            case OR ->
-                new AstLogicalFilter(
-                        operator,
-                        filters.stream()
-                                .map(AstFilter::withTernaryNullnessLogicEnforced)
-                                .toList());
-        };
-    }
-
-    private static void collectTernaryNullnessLogicApplicableFieldPathsRecursively(
-            AstFilter astFilter, List<String> collectedFieldPaths) {
-        if (astFilter instanceof AstFieldOperationFilter fieldOperationFilter) {
-            if (fieldOperationFilter.isTernaryNullnessLogicApplicable()) {
-                collectedFieldPaths.add(fieldOperationFilter.fieldPath());
-            }
-        } else if (astFilter instanceof AstLogicalFilter logicalFilter) {
-            logicalFilter
-                    .filters()
-                    .forEach(filter ->
-                            collectTernaryNullnessLogicApplicableFieldPathsRecursively(filter, collectedFieldPaths));
-        } else {
-            throw fail();
-        }
     }
 }

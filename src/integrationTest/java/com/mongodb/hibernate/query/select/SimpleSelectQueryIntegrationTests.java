@@ -16,16 +16,11 @@
 
 package com.mongodb.hibernate.query.select;
 
-import static java.util.Collections.emptyList;
-import static org.assertj.core.api.Assertions.assertThatCode;
-
 import com.mongodb.hibernate.internal.FeatureNotSupportedException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.util.Arrays;
-import java.util.List;
 import org.hibernate.query.SemanticException;
 import org.hibernate.testing.orm.junit.DomainModel;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +28,12 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.Arrays;
+import java.util.List;
+
+import static java.util.Collections.emptyList;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 @DomainModel(annotatedClasses = SimpleSelectQueryIntegrationTests.Contact.class)
 class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegrationTests {
@@ -45,6 +46,15 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
             getTestCommandListener().clear();
         }
 
+//        private static final List<Contact> testingContacts = List.of(
+//                new Contact(1, "Bob", 18, Country.USA),
+//                new Contact(2, "Mary", 35, Country.CANADA),
+//                new Contact(3, "Dylan", 7, Country.CANADA),
+//                new Contact(4, "Lucy", 78, Country.CANADA),
+//                new Contact(5, "John", 25, Country.USA),
+//                new Contact(6, "Alice", 40, Country.USA),
+//                new Contact(7, "Eve", null, null));
+
         private static final List<Contact> testingContacts = List.of(
                 new Contact(1, "Bob", 18, Country.USA),
                 new Contact(2, "Mary", 35, Country.CANADA),
@@ -52,7 +62,21 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                 new Contact(4, "Lucy", 78, Country.CANADA),
                 new Contact(5, "John", 25, Country.USA),
                 new Contact(6, "Alice", 40, Country.USA),
-                new Contact(7, "Eve", null, null));
+                new Contact(7, "Eve", null, null),
+                new Contact(8, "Eve", null, Country.CANADA));
+
+        @Test
+        void testDoubleNegationWithNot111() {
+            assertSelectionQuery(
+                    "from Contact where country = :country OR age >= :age",
+                    Contact.class,
+                    q ->
+                            q.setParameter("country", "CANADA")
+                            .setParameter("age", null),
+                    """
+                 """,
+                    getTestingContacts());
+        }
 
         private static List<Contact> getTestingContacts(int... ids) {
             return Arrays.stream(ids)
@@ -901,7 +925,7 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                         }
                       ]
                     }""",
-                    getTestingContacts(2, 4));
+                    getTestingContacts(2, 3, 4, 8));
         }
 
         @Test
@@ -965,6 +989,137 @@ class SimpleSelectQueryIntegrationTests extends AbstractSelectionQueryIntegratio
                        ]
                      }""",
                     getTestingContacts(5, 6));
+        }
+
+        @Test
+        void testDoubleNegationWithNot() {
+            assertSelectionQuery(
+                    "from Contact where not(country = 'USA' AND age > 0)",
+                    Contact.class,
+                    """
+                    {
+                       "aggregate": "contacts",
+                       "pipeline": [
+                         {
+                           "$match": {
+                             "$and": [
+                               {
+                                 "$and": [
+                                   {
+                                     "age": {
+                                       "$gt": {
+                                         "$numberInt": "18"
+                                       }
+                                     }
+                                   },
+                                   {
+                                     "$nor": [
+                                       {
+                                         "$nor": [
+                                           {
+                                             "country": {
+                                               "$eq": "USA"
+                                             }
+                                           }
+                                         ]
+                                       }
+                                     ]
+                                   }
+                                 ]
+                               },
+                               {
+                                 "age": {
+                                   "$ne": null
+                                 }
+                               },
+                               {
+                                 "country": {
+                                   "$ne": null
+                                 }
+                               }
+                             ]
+                           }
+                         },
+                         {
+                           "$project": {
+                             "_id": true,
+                             "age": true,
+                             "country": true,
+                             "deleted": true,
+                             "name": true
+                           }
+                         }
+                       ]
+                     }""",
+                    getTestingContacts(2, 3, 4, 8));
+        }
+
+
+        @Test
+        void testDoubleNegationWithOr() {
+            assertSelectionQuery(
+                    "from Contact where not(not((country = :country) OR (age = :age)))",
+                    Contact.class,
+                    q -> {
+                        q.setParameter("country", Country.CANADA.name());
+                        q.setParameter("age", null);
+                    },
+                    """
+                    {
+                       "aggregate": "contacts",
+                       "pipeline": [
+                         {
+                           "$match": {
+                             "$and": [
+                               {
+                                 "$and": [
+                                   {
+                                     "age": {
+                                       "$gt": {
+                                         "$numberInt": "18"
+                                       }
+                                     }
+                                   },
+                                   {
+                                     "$nor": [
+                                       {
+                                         "$nor": [
+                                           {
+                                             "country": {
+                                               "$eq": "USA"
+                                             }
+                                           }
+                                         ]
+                                       }
+                                     ]
+                                   }
+                                 ]
+                               },
+                               {
+                                 "age": {
+                                   "$ne": null
+                                 }
+                               },
+                               {
+                                 "country": {
+                                   "$ne": null
+                                 }
+                               }
+                             ]
+                           }
+                         },
+                         {
+                           "$project": {
+                             "_id": true,
+                             "age": true,
+                             "country": true,
+                             "deleted": true,
+                             "name": true
+                           }
+                         }
+                       ]
+                     }""",
+                    getTestingContacts(2, 3, 4, 8));
         }
 
         @Test

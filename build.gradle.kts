@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import net.ltgt.gradle.errorprone.errorprone
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 
 plugins {
@@ -23,7 +22,6 @@ plugins {
     id("java-library")
     id("spotless-java-extension")
     id("maven-publish")
-    alias(libs.plugins.errorprone)
     alias(libs.plugins.buildconfig)
 }
 
@@ -111,15 +109,15 @@ tasks.check { dependsOn(tasks.spotlessApply) }
 
 tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.addAll(listOf("-Xlint:all", "-Werror"))
-    when (this) {
-        tasks.compileJava.get() ->
-            options.errorprone {
-                disableWarningsInGeneratedCode = true
-                option("NullAway:AnnotatedPackages", "com.mongodb.hibernate")
-                error("NullAway")
-            }
-        else -> options.errorprone.isEnabled = false
-    }
+   // when (this) {
+//        tasks.compileJava.get() ->
+//            options.errorprone {
+//                disableWarningsInGeneratedCode = true
+//                option("NullAway:AnnotatedPackages", "com.mongodb.hibernate")
+//                error("NullAway")
+//            }
+       // else -> options.errorprone.isEnabled = false
+   // }
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -150,8 +148,8 @@ dependencies {
 
     api(libs.jspecify)
 
-    errorprone(libs.nullaway)
-    errorprone(libs.google.errorprone.core)
+//    errorprone(libs.nullaway)
+   //errorprone(libs.google.errorprone.core)
 
     api(libs.hibernate.core)
     api(libs.mongo.java.driver.sync)

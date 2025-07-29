@@ -16,37 +16,6 @@
 
 package com.mongodb.hibernate.internal.translate;
 
-import static com.mongodb.hibernate.internal.MongoAssertions.assertNotNull;
-import static com.mongodb.hibernate.internal.MongoAssertions.assertNull;
-import static com.mongodb.hibernate.internal.MongoAssertions.assertTrue;
-import static com.mongodb.hibernate.internal.MongoAssertions.fail;
-import static com.mongodb.hibernate.internal.MongoConstants.EXTENDED_JSON_WRITER_SETTINGS;
-import static com.mongodb.hibernate.internal.MongoConstants.MONGO_DBMS_NAME;
-import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.COLLECTION_NAME;
-import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.FIELD_PATH;
-import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.FILTER;
-import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.MUTATION_RESULT;
-import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.PROJECT_STAGE_SPECIFICATIONS;
-import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.SELECT_RESULT;
-import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.SORT_FIELDS;
-import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.TUPLE;
-import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.VALUE;
-import static com.mongodb.hibernate.internal.translate.mongoast.AstLiteralValue.FALSE;
-import static com.mongodb.hibernate.internal.translate.mongoast.AstLiteralValue.TRUE;
-import static com.mongodb.hibernate.internal.translate.mongoast.command.aggregate.AstSortOrder.ASC;
-import static com.mongodb.hibernate.internal.translate.mongoast.command.aggregate.AstSortOrder.DESC;
-import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.EQ;
-import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.GT;
-import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.GTE;
-import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.LT;
-import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.LTE;
-import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.NE;
-import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstLogicalFilterOperator.AND;
-import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstLogicalFilterOperator.NOR;
-import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstLogicalFilterOperator.OR;
-import static java.lang.String.format;
-import static org.hibernate.query.sqm.FetchClauseType.ROWS_ONLY;
-
 import com.mongodb.hibernate.internal.FeatureNotSupportedException;
 import com.mongodb.hibernate.internal.extension.service.StandardServiceRegistryScopedState;
 import com.mongodb.hibernate.internal.translate.mongoast.AstDocument;
@@ -75,16 +44,7 @@ import com.mongodb.hibernate.internal.translate.mongoast.filter.AstFieldOperatio
 import com.mongodb.hibernate.internal.translate.mongoast.filter.AstFilter;
 import com.mongodb.hibernate.internal.translate.mongoast.filter.AstLogicalFilter;
 import com.mongodb.hibernate.internal.type.ValueConversions;
-import java.io.IOException;
-import java.io.StringWriter;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import org.bson.BsonNull;
 import org.bson.BsonValue;
 import org.bson.json.JsonWriter;
 import org.hibernate.engine.spi.SessionFactoryImplementor;
@@ -190,6 +150,47 @@ import org.hibernate.sql.model.internal.TableUpdateStandard;
 import org.hibernate.type.BasicType;
 import org.jspecify.annotations.Nullable;
 
+import java.io.IOException;
+import java.io.StringWriter;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import static com.mongodb.hibernate.internal.MongoAssertions.assertNotNull;
+import static com.mongodb.hibernate.internal.MongoAssertions.assertNull;
+import static com.mongodb.hibernate.internal.MongoAssertions.assertTrue;
+import static com.mongodb.hibernate.internal.MongoAssertions.fail;
+import static com.mongodb.hibernate.internal.MongoConstants.EXTENDED_JSON_WRITER_SETTINGS;
+import static com.mongodb.hibernate.internal.MongoConstants.MONGO_DBMS_NAME;
+import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.COLLECTION_NAME;
+import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.FIELD_PATH;
+import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.FILTER;
+import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.MUTATION_RESULT;
+import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.PROJECT_STAGE_SPECIFICATIONS;
+import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.SELECT_RESULT;
+import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.SORT_FIELDS;
+import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.TUPLE;
+import static com.mongodb.hibernate.internal.translate.AstVisitorValueDescriptor.VALUE;
+import static com.mongodb.hibernate.internal.translate.mongoast.AstLiteralValue.FALSE;
+import static com.mongodb.hibernate.internal.translate.mongoast.AstLiteralValue.TRUE;
+import static com.mongodb.hibernate.internal.translate.mongoast.command.aggregate.AstSortOrder.ASC;
+import static com.mongodb.hibernate.internal.translate.mongoast.command.aggregate.AstSortOrder.DESC;
+import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.EQ;
+import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.GT;
+import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.GTE;
+import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.LT;
+import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.LTE;
+import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstComparisonFilterOperator.NE;
+import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstLogicalFilterOperator.AND;
+import static com.mongodb.hibernate.internal.translate.mongoast.filter.AstLogicalFilterOperator.OR;
+import static java.lang.String.format;
+import static org.hibernate.query.sqm.FetchClauseType.ROWS_ONLY;
+
 abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstTranslator<T> {
 
     private final SessionFactoryImplementor sessionFactory;
@@ -201,6 +202,8 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
     private final Set<String> affectedTableNames = new HashSet<>();
 
     private @Nullable QueryOptionsLimit queryOptionsLimit;
+
+    private int negated = 0;
 
     AbstractMqlTranslator(SessionFactoryImplementor sessionFactory) {
         this.sessionFactory = sessionFactory;
@@ -330,7 +333,7 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
 
         var astFilterFieldPath = keyBinding.getColumnReference().getColumnExpression();
         var fieldValue = acceptAndYield(keyBinding.getValueExpression(), VALUE);
-        return new AstFieldOperationFilter(astFilterFieldPath, false, new AstComparisonFilterOperation(EQ, fieldValue));
+        return new AstFieldOperationFilter(astFilterFieldPath, new AstComparisonFilterOperation(EQ, fieldValue));
     }
 
     @Override
@@ -384,7 +387,7 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
         var whereClauseRestrictions = querySpec.getWhereClauseRestrictions();
         if (whereClauseRestrictions != null && !whereClauseRestrictions.isEmpty()) {
             var filter = acceptAndYield(whereClauseRestrictions, FILTER);
-            return Optional.of(new AstMatchStage(filter.withTernaryNullnessLogicEnforced()));
+            return Optional.of(new AstMatchStage(filter));
         } else {
             return Optional.empty();
         }
@@ -520,14 +523,28 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
         var astComparisonFilterOperator = getAstComparisonFilterOperator(operator);
 
         var astFilterOperation = new AstComparisonFilterOperation(astComparisonFilterOperator, comparisonValue);
-        var filter = new AstFieldOperationFilter(fieldPath, isFieldPathNullable(fieldExpression), astFilterOperation);
-        astVisitorValueHolder.yield(FILTER, filter);
+
+        if (astComparisonFilterOperator == EQ || astComparisonFilterOperator == NE || astComparisonFilterOperator == LTE || astComparisonFilterOperator == GTE) {
+            AstComparisonFilterOperation nullExclusionOperator =
+                    new AstComparisonFilterOperation(NE, new AstLiteralValue(BsonNull.VALUE));
+
+            List<AstFilter> filters = List.of(new AstFieldOperationFilter(fieldPath, astFilterOperation),
+                    new AstFieldOperationFilter(fieldPath, nullExclusionOperator));
+
+            var filter = new AstLogicalFilter(AND, filters);
+            astVisitorValueHolder.yield(FILTER, filter);
+        } else {
+            var filter = new AstFieldOperationFilter(fieldPath, astFilterOperation);
+            astVisitorValueHolder.yield(FILTER, filter);
+        }
     }
 
     @Override
     public void visitNegatedPredicate(NegatedPredicate negatedPredicate) {
+        negated++;
         var filter = acceptAndYield(negatedPredicate.getPredicate(), FILTER);
-        astVisitorValueHolder.yield(FILTER, new AstLogicalFilter(NOR, List.of(filter)));
+        negated--;
+        astVisitorValueHolder.yield(FILTER, filter);
     }
 
     @Override
@@ -577,10 +594,20 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
         for (Predicate predicate : junction.getPredicates()) {
             subFilters.add(acceptAndYield(predicate, FILTER));
         }
-        var junctionFilter =
-                switch (junction.getNature()) {
-                    case DISJUNCTION -> new AstLogicalFilter(OR, subFilters);
-                    case CONJUNCTION -> new AstLogicalFilter(AND, subFilters);
+
+        var junctionFilter = switch (junction.getNature()) {
+            case DISJUNCTION:
+                if (negated % 2 == 0) {
+                    yield new AstLogicalFilter(OR, subFilters);
+                } else {
+                    yield new AstLogicalFilter(AND, subFilters);
+                }
+            case CONJUNCTION:
+                if (negated % 2 == 0) {
+                    yield new AstLogicalFilter(AND, subFilters);
+                } else {
+                    yield new AstLogicalFilter(OR, subFilters);
+                }
                 };
         astVisitorValueHolder.yield(FILTER, junctionFilter);
     }
@@ -601,7 +628,7 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
         var astFilterOperation =
                 new AstComparisonFilterOperation(EQ, booleanExpressionPredicate.isNegated() ? FALSE : TRUE);
         var filter =
-                new AstFieldOperationFilter(fieldPath, isFieldPathNullable(fieldPathExpression), astFilterOperation);
+                new AstFieldOperationFilter(fieldPath, astFilterOperation);
         astVisitorValueHolder.yield(FILTER, filter);
     }
 
@@ -990,8 +1017,9 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
         }
     }
 
-    private static AstComparisonFilterOperator getAstComparisonFilterOperator(ComparisonOperator operator) {
-        return switch (operator) {
+    private AstComparisonFilterOperator getAstComparisonFilterOperator(ComparisonOperator operator) {
+        ComparisonOperator currentOperator = negated % 2 == 0 ? operator : operator.negated();
+        return switch (currentOperator) {
             case EQUAL -> EQ;
             case NOT_EQUAL -> NE;
             case LESS_THAN -> LT;
@@ -1075,13 +1103,5 @@ abstract class AbstractMqlTranslator<T extends JdbcOperation> implements SqlAstT
                             startPosition,
                             executionContext.getSession());
         }
-    }
-
-    private static boolean isFieldPathNullable(Expression expression) {
-        return expression instanceof BasicValuedPathInterpretation<?> basicValuedPathInterpretation
-                && assertNotNull(basicValuedPathInterpretation
-                                .getExpressionType()
-                                .asBasicValuedModelPart())
-                        .isNullable();
     }
 }
